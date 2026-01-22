@@ -152,6 +152,8 @@ Thumbs.db
 
 .idea/
 
+.vscode/
+
 *.swp
 
 *.swo

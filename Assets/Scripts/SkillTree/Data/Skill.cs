@@ -9,4 +9,5 @@ public class Skill : ScriptableObject
     public Sprite icon;
     public int cost;
     public List<Skill> prerequisites;
+    public List<SkillEffect> effects;
 }

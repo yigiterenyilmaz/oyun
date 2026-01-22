@@ -9,24 +9,53 @@ public class SkillTreeManager : MonoBehaviour
 
     public bool IsUnlocked(string skillId)
     {
-        return false;
+        return unlockedSkillIds.Contains(skillId);
     }
 
     public bool CanUnlock(Skill skill)
     {
-        return false;
+        if (skill == null)
+            return false;
+
+        if (IsUnlocked(skill.id))
+            return false;
+
+        if (!GameStatManager.Instance.HasEnoughWealth(skill.cost))
+            return false;
+
+        if (skill.prerequisites != null)
+        {
+            foreach (Skill prerequisite in skill.prerequisites)
+            {
+                if (!IsUnlocked(prerequisite.id))
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     public bool TryUnlock(string skillId)
     {
         Skill skill = database.GetById(skillId);
-        
-        if(skill == null) 
-          return false;
-        if(CanUnlock(skill) == false) 
-          return false;
+
+        if (skill == null)
+            return false;
+        if (!CanUnlock(skill))
+            return false;
+
+        GameStatManager.Instance.TrySpendWealth(skill.cost);
 
         unlockedSkillIds.Add(skillId);
+
+        if (skill.effects != null)
+        {
+            foreach (SkillEffect effect in skill.effects)
+            {
+                effect.Apply();
+            }
+        }
+
         SkillEvents.OnSkillUnlocked?.Invoke(skill);
 
         return true;
@@ -34,7 +63,17 @@ public class SkillTreeManager : MonoBehaviour
 
     public List<Skill> GetAvailableSkills()
     {
-        return null;
+        List<Skill> availableSkills = new List<Skill>();
+
+        foreach (Skill skill in database.allSkills)
+        {
+            if (CanUnlock(skill))
+            {
+                availableSkills.Add(skill);
+            }
+        }
+
+        return availableSkills;
     }
 
     private void OnEnable()
