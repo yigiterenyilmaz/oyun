@@ -310,7 +310,7 @@ GameObject:
   - component: {fileID: 253621621}
   - component: {fileID: 253621620}
   m_Layer: 5
-  m_Name: ExposureBar
+  m_Name: MoneyBar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -348,11 +348,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67a2fb219c499084dbb7d0c1159f61a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  exposure: 0
-  maxExposure: 0
+  money: 0
+  maxMoney: 0
   width: 1130
   height: 60
-  exposureBar: {fileID: 327081039}
+  moneyBar: {fileID: 0}
 --- !u!114 &253621621
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -520,7 +520,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.6377357, g: 0.08543253, b: 0.08543253, a: 1}
+  m_Color: {r: 0.2047367, g: 0.645283, b: 0.062093254, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1458,10 +1458,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: af12606eb8ecc8f42b80f1896d2a4b41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  exposure: 0
-  maxExposure: 100
   money: 0
-  exposureBar: {fileID: 253621620}
+  maxMoney: 100
+  moneyBar: {fileID: 253621620}
 --- !u!4 &1119792702
 Transform:
   m_ObjectHideFlags: 0
