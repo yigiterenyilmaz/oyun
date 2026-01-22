@@ -8,6 +8,9 @@ public class UnlockMinigameEffect : SkillEffect
 
     public override void Apply()
     {
-
+        foreach (MiniGameData minigame in minigamesToBeUnlocked)
+        {
+            MinigameManager.Instance.UnlockMinigame(minigame);
+        }
     }
 }
