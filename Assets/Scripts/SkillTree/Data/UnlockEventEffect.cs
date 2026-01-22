@@ -4,10 +4,10 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "SkillTree/Effects/UnlockEventEffect")]
 public class UnlockEventEffect : SkillEffect
 {
-    public List<string> eventsToBeUnlocked;
+    public List<Event> eventsToBeUnlocked;
 
     public override void Apply()
     {
-        
+
     }
 }

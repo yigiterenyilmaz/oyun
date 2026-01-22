@@ -8,6 +8,6 @@ public class StatModifierEffect : SkillEffect
 
     public override void Apply()
     {
-        
+        GameStatManager.Instance.ModifyStat(statType, changeValue);
     }
 }
