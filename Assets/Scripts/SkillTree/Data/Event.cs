@@ -8,5 +8,5 @@ public class Event : ScriptableObject
     public string displayName;
     public string description;
     public Sprite icon;
-    public List<SkillEffect> effects;
+    public List<EventChoice> choices;
 }

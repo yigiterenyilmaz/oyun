@@ -57,13 +57,16 @@ public class RandomEventManager : MonoBehaviour
             return;
 
         OnEventTriggered?.Invoke(evt);
+    }
 
-        if (evt.effects != null)
+    public void SelectChoice(EventChoice choice)
+    {
+        if (choice.effects == null)
+            return;
+
+        foreach (SkillEffect effect in choice.effects)
         {
-            foreach (SkillEffect effect in evt.effects)
-            {
-                effect.Apply();
-            }
+            effect.Apply();
         }
     }
 }
