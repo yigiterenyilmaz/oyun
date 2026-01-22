@@ -81,6 +81,11 @@ public class SkillTreeManager : MonoBehaviour
         SkillEvents.OnSkillUnlockRequested += HandleUnlockRequest;
     }
 
+    private void OnDisable()
+    {
+        SkillEvents.OnSkillUnlockRequested -= HandleUnlockRequest;
+    }
+
     private void HandleUnlockRequest(String skillId)
     {
         TryUnlock(skillId);

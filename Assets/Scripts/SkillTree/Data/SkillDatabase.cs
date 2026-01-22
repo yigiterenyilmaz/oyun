@@ -22,6 +22,16 @@ public class SkillDatabase : ScriptableObject
 
     public List<Skill> GetRootSkills()
     {
-        return null;
+        List<Skill> rootSkills = new List<Skill>();
+
+        foreach (Skill skill in allSkills)
+        {
+            if (skill.prerequisites == null || skill.prerequisites.Count == 0)
+            {
+                rootSkills.Add(skill);
+            }
+        }
+
+        return rootSkills;
     }
 }
