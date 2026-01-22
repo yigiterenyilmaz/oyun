@@ -8,5 +8,5 @@ public class Skill : ScriptableObject
     public string displayName;
     public Sprite icon;
     public int cost;
-    public List<Skill> prerequisities;
+    public List<Skill> prerequisites;
 }
