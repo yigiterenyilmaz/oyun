@@ -9,11 +9,16 @@ public class SkillTreeManager : MonoBehaviour
 
     public bool IsUnlocked(string skillId)
     {
+<<<<<<< HEAD
         return unlockedSkillIds.Contains(skillId);
+=======
+        return false;
+>>>>>>> 41e649cc898f2d8fc79d28a95260f6f2a584cbb5
     }
 
     public bool CanUnlock(Skill skill)
     {
+<<<<<<< HEAD
         if (skill == null)
             return false;
 
@@ -33,11 +38,15 @@ public class SkillTreeManager : MonoBehaviour
         }
 
         return true;
+=======
+        return false;
+>>>>>>> 41e649cc898f2d8fc79d28a95260f6f2a584cbb5
     }
 
     public bool TryUnlock(string skillId)
     {
         Skill skill = database.GetById(skillId);
+<<<<<<< HEAD
 
         if (skill == null)
             return false;
@@ -56,6 +65,15 @@ public class SkillTreeManager : MonoBehaviour
             }
         }
 
+=======
+        
+        if(skill == null) 
+          return false;
+        if(CanUnlock(skill) == false) 
+          return false;
+
+        unlockedSkillIds.Add(skillId);
+>>>>>>> 41e649cc898f2d8fc79d28a95260f6f2a584cbb5
         SkillEvents.OnSkillUnlocked?.Invoke(skill);
 
         return true;
@@ -63,6 +81,7 @@ public class SkillTreeManager : MonoBehaviour
 
     public List<Skill> GetAvailableSkills()
     {
+<<<<<<< HEAD
         List<Skill> availableSkills = new List<Skill>();
 
         foreach (Skill skill in database.allSkills)
@@ -74,6 +93,9 @@ public class SkillTreeManager : MonoBehaviour
         }
 
         return availableSkills;
+=======
+        return null;
+>>>>>>> 41e649cc898f2d8fc79d28a95260f6f2a584cbb5
     }
 
     private void OnEnable()
