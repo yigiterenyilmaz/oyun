@@ -8,6 +8,9 @@ public class UnlockEventEffect : SkillEffect
 
     public override void Apply()
     {
-
+        foreach (Event evt in eventsToBeUnlocked)
+        {
+            RandomEventManager.Instance.UnlockEvent(evt);
+        }
     }
 }
