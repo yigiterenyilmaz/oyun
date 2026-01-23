@@ -4,8 +4,20 @@ using UnityEngine;
 
 public class SkillTreeManager : MonoBehaviour
 {
+    public static SkillTreeManager Instance { get; private set; }
+
     public SkillDatabase database;
     private HashSet<string> unlockedSkillIds = new HashSet<string>();
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     public bool IsUnlocked(string skillId)
     {
@@ -60,7 +72,7 @@ public class SkillTreeManager : MonoBehaviour
 
         return true;
     }
-
+    
     public List<Skill> GetAvailableSkills()
     {
         List<Skill> availableSkills = new List<Skill>();
