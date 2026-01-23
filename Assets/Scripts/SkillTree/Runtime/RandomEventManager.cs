@@ -6,17 +6,18 @@ public class RandomEventManager : MonoBehaviour
 {
     public static RandomEventManager Instance { get; private set; }
 
-    public float phaseInterval = 300f;
-    public int currentGamePhase = 0;
-    public float elapsedTime = 0f;
+    public EventDatabase eventDatabase;
+    public float phaseInterval = 300f; // her 300 saniyede bir phase artar.
+    public int currentGamePhase = 0; //şu anki phase
+    public float elapsedTime = 0f; //oyun başladığından beri geçen toplam süre
 
-    private HashSet<Event> unlockedEvents = new HashSet<Event>();
     private HashSet<Event> triggeredEvents = new HashSet<Event>();
+    //bu zamana kadar oyuncuya atılmış eventler.
 
-    public static event Action<Event> OnEventUnlocked;
     public static event Action<Event> OnEventTriggered;
+    //her event tetiklendiğinde gönderilen action
     public static event Action<int> OnPhaseChanged;
-
+    //her phase değiştiğinde atılan action
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -37,32 +38,13 @@ public class RandomEventManager : MonoBehaviour
             currentGamePhase = newPhase;
             OnPhaseChanged?.Invoke(currentGamePhase);
         }
-    }
-
-    public void UnlockEvent(Event evt)
-    {
-        if (unlockedEvents.Contains(evt))
-            return;
-
-        unlockedEvents.Add(evt);
-        OnEventUnlocked?.Invoke(evt);
-    }
-
-    public bool IsEventUnlocked(Event evt)
-    {
-        return unlockedEvents.Contains(evt);
-    }
-
-    public List<Event> GetUnlockedEvents()
-    {
-        return new List<Event>(unlockedEvents);
-    }
+    } //bu metod süreyi sürekli sayar yeni phase e geçildiğinde bir action tetiklenir.
 
     public List<Event> GetEligibleEvents()
     {
         List<Event> eligibleEvents = new List<Event>();
 
-        foreach (Event evt in unlockedEvents)
+        foreach (Event evt in eventDatabase.allEvents)
         {
             if (IsEventEligible(evt))
             {
@@ -70,19 +52,21 @@ public class RandomEventManager : MonoBehaviour
             }
         }
 
-        return eligibleEvents;
+        return eligibleEvents; //kullanıcının oyun durumuna göre atılabilecek eventlerin listesini döner
     }
 
-    public bool IsEventEligible(Event evt)
+    public bool IsEventEligible(Event evt) //tekil event kullanıcıya gösterilmeye uygun mu diye bakar
     {
         if (!evt.isRepeatable && triggeredEvents.Contains(evt))
-            return false; //eğer tekrarlanabilir bir event değilse ve daha önce tetiklenmişse alma.
+            return false; //eğer tekrar tekrar atılabilir değilse ve daha önce atıldıysa false
 
         if (currentGamePhase < evt.minGamePhase || currentGamePhase > evt.maxGamePhase)
-            return false; //belli oyun evrelerinde(erken-orta-son oyun vs.) belirli eventler gelebilir. bu onu kontrol eder.
+            return false; //eğer uygun game phase de değilse false.
+            //temel olarak eventler bulunan game phase e bağlıdır. 
 
         if (evt.requiredSkills != null && evt.requiredSkills.Count > 0)
-        {
+        {//eğer event tetiklemesi için bir skillin açılmasına ihtiyacımız varsa
+        //o skill açık mı diye bakar.
             foreach (Skill skill in evt.requiredSkills)
             {
                 if (!SkillTreeManager.Instance.IsUnlocked(skill.id))
@@ -91,7 +75,7 @@ public class RandomEventManager : MonoBehaviour
         }
 
         if (evt.statConditions != null && evt.statConditions.Count > 0)
-        {
+        { //eğer event tetiklemesi için bir stat şartı varsa ona bakar.
             foreach (StatCondition condition in evt.statConditions)
             {
                 if (!condition.IsMet())
@@ -102,7 +86,7 @@ public class RandomEventManager : MonoBehaviour
         return true;
     }
 
-    public Event GetRandomEvent()
+    public Event GetRandomEvent()//event havuzundan bir adet random event çeker
     {
         List<Event> eligibleEvents = GetEligibleEvents();
 
@@ -112,10 +96,10 @@ public class RandomEventManager : MonoBehaviour
         float totalWeight = 0f;
         foreach (Event evt in eligibleEvents)
         {
-            totalWeight += evt.weight;
+            totalWeight += evt.weight; //atılması mümkün eventlerin ağırlıklarını toplar
         }
 
-        float randomValue = UnityEngine.Random.Range(0f, totalWeight);
+        float randomValue = UnityEngine.Random.Range(0f, totalWeight); //toplam ağırlıkla 0 arasında random bir sayı
         float currentWeight = 0f;
 
         foreach (Event evt in eligibleEvents)
@@ -130,7 +114,7 @@ public class RandomEventManager : MonoBehaviour
         return eligibleEvents[eligibleEvents.Count - 1];
     }
 
-    public void TriggerRandomEvent()
+    public void TriggerRandomEvent() //random event tetikler
     {
         Event evt = GetRandomEvent();
         if (evt == null)

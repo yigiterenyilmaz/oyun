@@ -19,6 +19,7 @@ public class GameStatManager : MonoBehaviour
     public float trust;
 
     public static event Action<StatType, float, float> OnStatChanged;
+    //statlar değiştiğinde Action gönderir. UI bunu dinleyip barları güncelleyecek.
 
     private void Awake()
     {
@@ -42,10 +43,10 @@ public class GameStatManager : MonoBehaviour
             StatType.Suspicion => suspicion,
             StatType.Trust => trust,
             _ => 0f
-        };
+        }; //verilen stat type a göre statın değerini döner
     }
 
-    public void ModifyStat(StatType statType, float amount)
+    public void ModifyStat(StatType statType, float amount) //stata değer eklemek için
     {
         float oldValue = GetStat(statType);
         float newValue;
@@ -71,10 +72,12 @@ public class GameStatManager : MonoBehaviour
         if (oldValue != newValue)
         {
             OnStatChanged?.Invoke(statType, oldValue, newValue);
-        }
+        } /* eğer stat değiştiyse bir Event patlatır(bu event'oyundaki eventten farklı bir şey)
+            UI burayı dinleyecek ve barlar ona göre tepki verecek.
+        */
     }
 
-    public void SetStat(StatType statType, float value)
+    public void SetStat(StatType statType, float value) // statı set etmek için.
     {
         float oldValue = GetStat(statType);
 
@@ -96,13 +99,13 @@ public class GameStatManager : MonoBehaviour
         float newValue = GetStat(statType);
         if (oldValue != newValue)
         {
-            OnStatChanged?.Invoke(statType, oldValue, newValue);
+            OnStatChanged?.Invoke(statType, oldValue, newValue); //modifyStat metoduyla aynı mantık
         }
     }
 
     public bool HasEnoughWealth(float amount)
     {
-        return wealth >= amount;
+        return wealth >= amount; 
     }
 
     public bool TrySpendWealth(float amount)

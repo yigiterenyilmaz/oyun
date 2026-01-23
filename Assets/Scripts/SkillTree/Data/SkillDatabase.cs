@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "SkillTree/SkillDataBase")]
-public class SkillDatabase : ScriptableObject
+public class SkillDatabase : ScriptableObject //oyundaki tüm skilleri tek bir yerde toplayan class.
 {
     public List<Skill> allSkills;
 
@@ -18,7 +18,7 @@ public class SkillDatabase : ScriptableObject
 
         Debug.LogError($"Skill not found with id: {id}");
         return null;
-    }
+    } //id den skill bulmaya yarar.
 
     public List<Skill> GetRootSkills()
     {
@@ -33,5 +33,5 @@ public class SkillDatabase : ScriptableObject
         }
 
         return rootSkills;
-    }
+    }//root skilleri döner.
 }

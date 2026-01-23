@@ -8,7 +8,7 @@ public class Event : ScriptableObject
     public string displayName; //ismi
     public string description; //açıklaması
     public Sprite icon; //iconu
-    public List<EventChoice> choices;
+    public List<EventChoice> choices; //bir evente verilebilecek seçimler.
 
     public bool isRepeatable = true; //tekrar gelip gelemeyeceği.
     public float weight = 1f; //ağırlığı, ne sıklıkla gelebileceğini etkiler.

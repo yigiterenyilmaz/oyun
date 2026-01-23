@@ -3,6 +3,8 @@ using UnityEngine;
 [System.Serializable]
 public class StatCondition
 {
+    //istenen stat condition'ının sağlanıp sağlanmadığını ölçen class. IsMet
+    //istenen durumlar sağlanıyorsa true döner. sadece statlara bakar.
     public StatType statType;
     public ComparisonType comparison;
     public float value;

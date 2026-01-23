@@ -4,10 +4,10 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "SkillTree/Skill")]
 public class Skill : ScriptableObject
 {
-    public string id;
-    public string displayName;
-    public Sprite icon;
-    public int cost;
-    public List<Skill> prerequisites;
-    public List<SkillEffect> effects;
+    public string id; //skill id si
+    public string displayName; //skill 
+    public Sprite icon; //skill in iconu
+    public int cost; //skill in bedeli
+    public List<Skill> prerequisites; //skill in ön koşulları
+    public List<SkillEffect> effects; //skill açılınca oluşan efektler
 }
