@@ -6,13 +6,16 @@ public class RandomEventManager : MonoBehaviour
 {
     public static RandomEventManager Instance { get; private set; }
 
+    public float phaseInterval = 300f;
     public int currentGamePhase = 0;
+    public float elapsedTime = 0f;
 
     private HashSet<Event> unlockedEvents = new HashSet<Event>();
     private HashSet<Event> triggeredEvents = new HashSet<Event>();
 
     public static event Action<Event> OnEventUnlocked;
     public static event Action<Event> OnEventTriggered;
+    public static event Action<int> OnPhaseChanged;
 
     private void Awake()
     {
@@ -22,6 +25,18 @@ public class RandomEventManager : MonoBehaviour
             return;
         }
         Instance = this;
+    }
+
+    private void Update()
+    {
+        elapsedTime += Time.deltaTime;
+
+        int newPhase = (int)(elapsedTime / phaseInterval);
+        if (newPhase != currentGamePhase)
+        {
+            currentGamePhase = newPhase;
+            OnPhaseChanged?.Invoke(currentGamePhase);
+        }
     }
 
     public void UnlockEvent(Event evt)
@@ -61,10 +76,10 @@ public class RandomEventManager : MonoBehaviour
     public bool IsEventEligible(Event evt)
     {
         if (!evt.isRepeatable && triggeredEvents.Contains(evt))
-            return false;
+            return false; //eğer tekrarlanabilir bir event değilse ve daha önce tetiklenmişse alma.
 
         if (currentGamePhase < evt.minGamePhase || currentGamePhase > evt.maxGamePhase)
-            return false;
+            return false; //belli oyun evrelerinde(erken-orta-son oyun vs.) belirli eventler gelebilir. bu onu kontrol eder.
 
         if (evt.requiredSkills != null && evt.requiredSkills.Count > 0)
         {
