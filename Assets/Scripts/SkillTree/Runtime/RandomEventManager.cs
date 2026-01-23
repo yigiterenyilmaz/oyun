@@ -7,9 +7,14 @@ public class RandomEventManager : MonoBehaviour
     public static RandomEventManager Instance { get; private set; }
 
     public EventDatabase eventDatabase;
-    public float phaseInterval = 300f; // her 300 saniyede bir phase artar.
+    public float phaseInterval = 900f; // her 900 saniyede (15 dakika) bir phase artar. Toplam 4 phase (0-3).
     public int currentGamePhase = 0; //şu anki phase
     public float elapsedTime = 0f; //oyun başladığından beri geçen toplam süre
+
+    public float minEventInterval = 240f; // minimum 4 dakika
+    public float maxEventInterval = 360f; // maximum 6 dakika
+    private float eventTimer = 0f;
+    private float nextEventTime;
 
     private HashSet<Event> triggeredEvents = new HashSet<Event>();
     //bu zamana kadar oyuncuya atılmış eventler.
@@ -26,6 +31,8 @@ public class RandomEventManager : MonoBehaviour
             return;
         }
         Instance = this;
+        nextEventTime = UnityEngine.Random.Range(minEventInterval, maxEventInterval);
+        //ilk event'in süresi rastgele belirlenir.
     }
 
     private void Update()
@@ -38,7 +45,15 @@ public class RandomEventManager : MonoBehaviour
             currentGamePhase = newPhase;
             OnPhaseChanged?.Invoke(currentGamePhase);
         }
-    } //bu metod süreyi sürekli sayar yeni phase e geçildiğinde bir action tetiklenir.
+
+        eventTimer += Time.deltaTime;
+        if (eventTimer >= nextEventTime)
+        {
+            eventTimer = 0f;
+            nextEventTime = UnityEngine.Random.Range(minEventInterval, maxEventInterval);
+            TriggerRandomEvent(); //timer dolunca event tetikle, yeni rastgele süre belirle.
+        }
+    }
 
     public List<Event> GetEligibleEvents()
     {
