@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 789ed962cec198545a3f44c3e300e469, type: 3}
-  m_Name: B1_LostInTheEcho
+  m_Name: A10_SymphonyOfDestruction
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: b1
-  displayName: Lost In The Echo
-  icon: {fileID: 1280646856677322220, guid: 22cc53ebd000d6447bdab0e08e1f9d9a, type: 3}
+  id: a10
+  displayName: Symphony Of Destruction
+  icon: {fileID: 5335460139863016236, guid: 3f61a19886000c54f9ff8367ad0fd94a, type: 3}
   cost: 0
   prerequisites: []
   effects: []

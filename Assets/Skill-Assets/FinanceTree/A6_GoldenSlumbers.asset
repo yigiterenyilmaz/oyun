@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 789ed962cec198545a3f44c3e300e469, type: 3}
-  m_Name: B1_LostInTheEcho
+  m_Name: A6_GoldenSlumbers
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: b1
-  displayName: Lost In The Echo
-  icon: {fileID: 1280646856677322220, guid: 22cc53ebd000d6447bdab0e08e1f9d9a, type: 3}
+  id: a6
+  displayName: Golden Slumbers
+  icon: {fileID: 8517896944837758819, guid: de2835601ae670b4fb50d4a9b188f1be, type: 3}
   cost: 0
   prerequisites: []
   effects: []

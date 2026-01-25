@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 789ed962cec198545a3f44c3e300e469, type: 3}
-  m_Name: B1_LostInTheEcho
+  m_Name: A9_Radioactive
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: b1
-  displayName: Lost In The Echo
-  icon: {fileID: 1280646856677322220, guid: 22cc53ebd000d6447bdab0e08e1f9d9a, type: 3}
+  id: a9
+  displayName: Radioactive
+  icon: {fileID: -370537275048200625, guid: 9d1285b94be992144ae41f91fec0c0c7, type: 3}
   cost: 0
   prerequisites: []
   effects: []
