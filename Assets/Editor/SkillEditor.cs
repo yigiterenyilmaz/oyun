@@ -27,6 +27,13 @@ public class SkillEditor : Editor
             true
         );
 
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Blocks Skills", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(
+            serializedObject.FindProperty("blocksSkills"),
+            true
+        );
+
         serializedObject.ApplyModifiedProperties();
     }
 }

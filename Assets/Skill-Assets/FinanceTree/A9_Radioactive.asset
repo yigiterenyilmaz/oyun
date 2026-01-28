@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Radioactive
   icon: {fileID: -370537275048200625, guid: 9d1285b94be992144ae41f91fec0c0c7, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: c30fa07ba799b444db9ee43ab9150e17, type: 2}
   effects: []

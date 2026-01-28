@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Golden Slumbers
   icon: {fileID: 8517896944837758819, guid: de2835601ae670b4fb50d4a9b188f1be, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: c30fa07ba799b444db9ee43ab9150e17, type: 2}
   effects: []

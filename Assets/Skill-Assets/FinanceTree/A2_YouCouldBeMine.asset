@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: You Could Be Mine
   icon: {fileID: -8221802452147339452, guid: 64712823bc6499f40890e2929e355de7, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: afe222379c792fe4e8184277402dbedf, type: 2}
   effects: []

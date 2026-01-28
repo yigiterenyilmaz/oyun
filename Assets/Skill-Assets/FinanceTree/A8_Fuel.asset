@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Fuel
   icon: {fileID: -984311405032057619, guid: 3142222355994c742b1a83f0ec327abb, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: c30fa07ba799b444db9ee43ab9150e17, type: 2}
   effects: []

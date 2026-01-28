@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Running On Empty
   icon: {fileID: 1969304334036861969, guid: c4c0ca079b4b6ad438f0ce9ed0e252af, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: d828b36e74f3d414ea71a4ff87c39e69, type: 2}
   effects: []

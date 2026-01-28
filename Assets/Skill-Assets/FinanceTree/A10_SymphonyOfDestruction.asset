@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Symphony Of Destruction
   icon: {fileID: 5335460139863016236, guid: 3f61a19886000c54f9ff8367ad0fd94a, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: a4d6a9d1d6963fd4b9268fabe0af19ee, type: 2}
   effects: []

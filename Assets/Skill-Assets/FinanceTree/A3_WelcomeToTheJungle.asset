@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Welcome To The Jungle
   icon: {fileID: -5976307804602949683, guid: d5b7ce0074a998f479536e52e9163d56, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: afe222379c792fe4e8184277402dbedf, type: 2}
   effects: []

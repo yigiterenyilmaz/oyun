@@ -8,6 +8,7 @@ public class SkillTreeManager : MonoBehaviour
 
     public SkillDatabase database;
     private HashSet<string> unlockedSkillIds = new HashSet<string>();
+    private HashSet<string> blockedSkillIds = new HashSet<string>(); //sonsuza kadar kilitli skiller
 
     private void Awake()
     {
@@ -24,6 +25,11 @@ public class SkillTreeManager : MonoBehaviour
         return unlockedSkillIds.Contains(skillId); //skill açık mı diye kontrol eder
     }
 
+    public bool IsBlocked(string skillId)
+    {
+        return blockedSkillIds.Contains(skillId); //skill kalıcı olarak kilitli mi
+    }
+
     public bool CanUnlock(Skill skill) //açılabilir mi diye bakar
     {
         if (skill == null)
@@ -31,6 +37,9 @@ public class SkillTreeManager : MonoBehaviour
 
         if (IsUnlocked(skill.id))
             return false; //zaten açılmışsa false
+
+        if (IsBlocked(skill.id))
+            return false; //kalıcı olarak kilitliyse false
 
         if (!GameStatManager.Instance.HasEnoughWealth(skill.cost))
             return false; //yeterli para yoksa false
@@ -65,6 +74,19 @@ public class SkillTreeManager : MonoBehaviour
             foreach (SkillEffect effect in skill.effects)
             {
                 effect.Apply(); //skillerin etkilerini işler.
+            }
+        }
+
+        //bu skill açılınca hangi skiller kalıcı olarak kilitlenecek
+        if (skill.blocksSkills != null)
+        {
+            foreach (Skill blockedSkill in skill.blocksSkills)
+            {
+                if (blockedSkill != null && !IsUnlocked(blockedSkill.id))
+                {
+                    blockedSkillIds.Add(blockedSkill.id);
+                    SkillEvents.OnSkillBlocked?.Invoke(blockedSkill);
+                }
             }
         }
 

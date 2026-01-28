@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Dirty Deeds Done Dirt Cheap
   icon: {fileID: -7085578910351759198, guid: 7c889920d5afc1e49888a55975aa088a, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: c65ed3c0c02b06a49b3945ca557c7087, type: 2}
   effects: []

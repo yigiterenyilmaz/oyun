@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Highway To Hell
   icon: {fileID: 281863496213428580, guid: d99f63523997d9249821efd34ae2ca2f, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: da19f5dd4631b694a829b0dd640cdf38, type: 2}
   effects: []

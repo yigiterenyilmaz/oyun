@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: Seek&Destroy
   icon: {fileID: -1092613395293085535, guid: ded4f913c879b5f4f846b1dd23df5d15, type: 3}
   cost: 0
-  prerequisites: []
+  prerequisites:
+  - {fileID: 11400000, guid: 6db298d9b9e5d4b4c9c23549b65001e5, type: 2}
   effects: []
