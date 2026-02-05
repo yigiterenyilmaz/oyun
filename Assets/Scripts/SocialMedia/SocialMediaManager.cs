@@ -73,6 +73,9 @@ public class SocialMediaManager : MonoBehaviour
     //topic ağırlıkları - hangi topic'in doğal trend olma şansını etkiler
     private Dictionary<TopicType, float> topicWeights = new Dictionary<TopicType, float>();
 
+    //runtime - sensitive topic (ülkenin hassas konusu, oyun başında random belirlenir)
+    private TopicType sensitiveTopic;
+
     //events
     public static event Action<TopicType> OnNaturalTrendChanged;
     public static event Action<TopicType, float> OnOverrideStarted; //topic, duration
@@ -86,6 +89,7 @@ public class SocialMediaManager : MonoBehaviour
     public static event Action OnFeedSpeedRestored;
     public static event Action OnFreezeAbilityUnlocked;
     public static event Action OnSlowAbilityUnlocked;
+    public static event Action<TopicType> OnSensitiveTopicDetermined; //oyun başında hassas konu belirlendiğinde
 
     private void Awake()
     {
@@ -100,8 +104,28 @@ public class SocialMediaManager : MonoBehaviour
 
     private void Start()
     {
+        DetermineSensitiveTopic();
         SelectNewNaturalTrend();
         ScheduleNextPost();
+    }
+
+    //oyun başında ülkenin hassas konusunu belirle (random)
+    private void DetermineSensitiveTopic()
+    {
+        TopicType[] allTopics = (TopicType[])Enum.GetValues(typeof(TopicType));
+        sensitiveTopic = allTopics[UnityEngine.Random.Range(0, allTopics.Length)];
+        OnSensitiveTopicDetermined?.Invoke(sensitiveTopic);
+    }
+
+    public TopicType GetSensitiveTopic()
+    {
+        return sensitiveTopic;
+    }
+
+    //hassas topic mi kontrol et (ileride manipülasyon etkisi hesabında kullanılacak)
+    public bool IsSensitiveTopic(TopicType topic)
+    {
+        return topic == sensitiveTopic;
     }
 
     private void Update()
