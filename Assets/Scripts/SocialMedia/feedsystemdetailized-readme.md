@@ -15,6 +15,14 @@ Oyunda sürekli akan bir sosyal medya feed'i var. Bu feed oyuncudan bağımsız 
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
+│                  HASSAS KONU BELİRLENİR                          │
+│     (ülkenin hassas konusu random seçilir, oyun boyunca sabit)  │
+│                                                                  │
+│         → SocialMediaManager.DetermineSensitiveTopic()          │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
 │                    DOĞAL TREND BELİRLENİR                        │
 │         (rastgele bir konu seçilir, 40-150 sn sürer)            │
 │                                                                  │
@@ -115,6 +123,14 @@ Yorumların daha sık gelmesini sağlar. Normalde 1-6 saniye olan aralık kısal
 
 `RandomEventManager.SelectChoice()` bir event seçeneği işlendiğinde, eğer o seçenekte feed ayarları varsa ilgili metodları çağırır.
 
+### Hassas Konu (Sensitive Topic)
+
+Her oyun başında ülkenin "hassas konusu" rastgele belirlenir. Bu konu oyun boyunca değişmez. Hassas konunun doğal trend olma şansı diğer konularla aynıdır, ancak ileride bu konuda yapılan manipülasyonlar (override, bot basma vb.) daha güçlü etki yaratacak.
+
+- Belirleme: `DetermineSensitiveTopic()` - Start'ta çağrılır
+- Sorgulama: `GetSensitiveTopic()` - hassas konuyu döndürür
+- Kontrol: `IsSensitiveTopic(topic)` - verilen konu hassas mı
+
 ---
 
 ## Kim Neyi Yapar?
@@ -132,6 +148,8 @@ Yorumların daha sık gelmesini sağlar. Normalde 1-6 saniye olan aralık kısal
 | Freeze/Slow yeteneği açma | `UnlockFreezeAbility()` / `UnlockSlowAbility()` |
 | Freeze/Slow kullanma | `TryFreezeFeed()` / `TrySlowFeed()` |
 | Topic ağırlığı değiştirme | `SocialMediaManager.ModifyTopicWeight()` |
+| Hassas konu belirleme | `SocialMediaManager.DetermineSensitiveTopic()` |
+| Hassas konu sorgulama | `GetSensitiveTopic()` / `IsSensitiveTopic()` |
 
 ---
 
@@ -165,3 +183,4 @@ Sistem önemli anlarda event fırlatır, UI bu event'lere abone olarak güncelle
 | `OnFeedSpeedRestored` | Yavaşlatma bittiğinde |
 | `OnFreezeAbilityUnlocked` | Dondurma yeteneği açıldığında |
 | `OnSlowAbilityUnlocked` | Yavaşlatma yeteneği açıldığında |
+| `OnSensitiveTopicDetermined` | Oyun başında hassas konu belirlendiğinde |

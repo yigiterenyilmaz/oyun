@@ -33,6 +33,11 @@ Oyun boyunca akan sosyal medya yorumlarını yöneten sistem.
 - Bazı event seçimleri feed'in hızını değiştirebilir
 - Her event farklı oranda ve sürede etki yaratabilir
 
+### Hassas Konu (Sensitive Topic)
+- Her oyun başında ülkenin "hassas konusu" rastgele belirlenir
+- Hassas konunun trend olma şansı farklı değil
+- Ancak hassas konuda yapılan manipülasyonlar daha etkili olacak
+
 ## Topic'ler
 Vergi, Politika, Skandal, Borsa, Teknoloji, Emlak, Bankacılık, Sosyete, Spor, Genel
 
