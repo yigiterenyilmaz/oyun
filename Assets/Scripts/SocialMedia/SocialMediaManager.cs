@@ -35,6 +35,10 @@ public class SocialMediaManager : MonoBehaviour
     public float slowedMinInterval = 8f; //yavaşlatılmış min süre
     public float slowedMaxInterval = 15f; //yavaşlatılmış max süre
 
+    [Header("Sensitive Topic Settings")]
+    [Tooltip("Hassas konu olabilecek topic'ler. Boşsa hiçbir topic hassas olamaz.")]
+    public List<TopicType> eligibleSensitiveTopics = new List<TopicType>();
+
     //runtime - feed control abilities (skill ile açılır)
     private bool canFreezeFeed = false; //feed dondurma yeteneği açık mı
     private bool canSlowFeed = false; //feed yavaşlatma yeteneği açık mı
@@ -109,12 +113,23 @@ public class SocialMediaManager : MonoBehaviour
         ScheduleNextPost();
     }
 
-    //oyun başında ülkenin hassas konusunu belirle (random)
+    //oyun başında ülkenin hassas konusunu belirle (sadece eligible listesinden)
     private void DetermineSensitiveTopic()
     {
-        TopicType[] allTopics = (TopicType[])Enum.GetValues(typeof(TopicType));
-        sensitiveTopic = allTopics[UnityEngine.Random.Range(0, allTopics.Length)];
+        if (eligibleSensitiveTopics == null || eligibleSensitiveTopics.Count == 0)
+        {
+            //eligible liste boşsa hassas konu yok
+            return;
+        }
+
+        sensitiveTopic = eligibleSensitiveTopics[UnityEngine.Random.Range(0, eligibleSensitiveTopics.Count)];
         OnSensitiveTopicDetermined?.Invoke(sensitiveTopic);
+    }
+
+    //hassas konu var mı kontrol et
+    public bool HasSensitiveTopic()
+    {
+        return eligibleSensitiveTopics != null && eligibleSensitiveTopics.Count > 0;
     }
 
     public TopicType GetSensitiveTopic()
@@ -125,6 +140,9 @@ public class SocialMediaManager : MonoBehaviour
     //hassas topic mi kontrol et (ileride manipülasyon etkisi hesabında kullanılacak)
     public bool IsSensitiveTopic(TopicType topic)
     {
+        if (!HasSensitiveTopic())
+            return false;
+
         return topic == sensitiveTopic;
     }
 
