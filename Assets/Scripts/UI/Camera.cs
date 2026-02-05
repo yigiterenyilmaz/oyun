@@ -13,6 +13,7 @@ public class MapController : MonoBehaviour
 
     private Camera cam;
     private Vector3 dragOrigin;
+    public bool enable=true;
 
     void Awake()
     {
@@ -38,8 +39,12 @@ public class MapController : MonoBehaviour
     {
         if (mapRenderer == null) return;
 
-        HandleZoom();
-        HandlePan();
+        if (enable)
+        {
+            HandleZoom();
+            HandlePan();
+        }
+
 
         // Her hareket sonrası kamerayı harita sınırlarına hapset
         transform.position = ClampCamera(transform.position);

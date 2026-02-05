@@ -3,10 +3,11 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
 
-    public float money,maxMoney=100;
+     public float maxMoney;
     
     [SerializeField]
     public  MoneyBar moneyBar;
+    public float money;
     
     
     // Start is called once before the first execution of Update after the MonoBehaviour is created

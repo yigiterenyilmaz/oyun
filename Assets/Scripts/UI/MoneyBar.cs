@@ -31,6 +31,6 @@ public class MoneyBar : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        setMoney(money/2);
+        
     }
 }
