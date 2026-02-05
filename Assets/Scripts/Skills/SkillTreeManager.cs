@@ -10,6 +10,12 @@ public class SkillTreeManager : MonoBehaviour
     private HashSet<string> unlockedSkillIds = new HashSet<string>();
     private HashSet<string> blockedSkillIds = new HashSet<string>(); //sonsuza kadar kilitli skiller
 
+    //passive income
+    private float totalPassiveIncomePerSecond = 0f;
+
+    //events
+    public static event Action<float> OnPassiveIncomeChanged; //yeni toplam pasif gelir
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -18,6 +24,16 @@ public class SkillTreeManager : MonoBehaviour
             return;
         }
         Instance = this;
+    }
+
+    private void Update()
+    {
+        //pasif geliri uygula
+        if (totalPassiveIncomePerSecond != 0f && GameStatManager.Instance != null)
+        {
+            float income = totalPassiveIncomePerSecond * Time.deltaTime;
+            GameStatManager.Instance.AddWealth(income);
+        }
     }
 
     public bool IsUnlocked(string skillId)
@@ -93,6 +109,18 @@ public class SkillTreeManager : MonoBehaviour
         SkillEvents.OnSkillUnlocked?.Invoke(skill);//skill açma action u atar
 
         return true;
+    }
+
+    //effect'ler bu metodu çağırarak pasif gelir kaydeder
+    public void RegisterPassiveIncome(float incomePerSecond)
+    {
+        totalPassiveIncomePerSecond += incomePerSecond;
+        OnPassiveIncomeChanged?.Invoke(totalPassiveIncomePerSecond);
+    }
+
+    public float GetTotalPassiveIncome()
+    {
+        return totalPassiveIncomePerSecond;
     }
     
     public List<Skill> GetAvailableSkills()

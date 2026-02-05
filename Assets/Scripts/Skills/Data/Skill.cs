@@ -5,7 +5,7 @@ using UnityEngine;
 public class Skill : ScriptableObject
 {
     public string id; //skill id si
-    public string displayName; //skill 
+    public string displayName; //skill
     public Sprite icon; //skill in iconu
     public int cost; //skill in bedeli
     public List<Skill> prerequisites; //skill in ön koşulları
