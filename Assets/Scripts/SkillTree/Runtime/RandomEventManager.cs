@@ -141,12 +141,33 @@ public class RandomEventManager : MonoBehaviour
 
     public void SelectChoice(EventChoice choice)
     {
-        if (choice.effects == null)
-            return;
-
-        foreach (SkillEffect effect in choice.effects)
+        //efektleri uygula
+        if (choice.effects != null)
         {
-            effect.Apply();
+            foreach (SkillEffect effect in choice.effects)
+            {
+                effect.Apply();
+            }
+        }
+
+        //feed override varsa uygula
+        if (choice.overridesFeed && SocialMediaManager.Instance != null)
+        {
+            SocialMediaManager.Instance.SetEventOverride(
+                choice.feedTopic,
+                choice.feedOverrideRatio,
+                choice.feedOverrideDuration
+            );
+        }
+
+        //feed speed boost varsa uygula
+        if (choice.boostsFeedSpeed && SocialMediaManager.Instance != null)
+        {
+            SocialMediaManager.Instance.SetSpeedBoostWithDuration(
+                choice.boostedMinInterval,
+                choice.boostedMaxInterval,
+                choice.speedBoostDuration
+            );
         }
     }
 
@@ -154,4 +175,6 @@ public class RandomEventManager : MonoBehaviour
     {
         currentGamePhase = phase;
     }
+
+    public int CurrentPhase => currentGamePhase;
 }
