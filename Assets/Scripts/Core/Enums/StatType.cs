@@ -1,8 +1,7 @@
-using UnityEngine;
-
 public enum StatType
 {
     Wealth,
     Suspicion,
-    Trust
+    Reputation,        //eski Trust, şüphe artışını modifiye eder
+    PoliticalInfluence //siyasi nüfuz, -100 ile +100 arası, skill verimini etkiler
 }
