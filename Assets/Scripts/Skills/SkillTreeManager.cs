@@ -12,6 +12,8 @@ public class SkillTreeManager : MonoBehaviour
 
     //passive income
     private float totalPassiveIncomePerSecond = 0f;
+    private float passiveIncomeTimer = 0f;
+    private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
     //events
     public static event Action<float> OnPassiveIncomeChanged; //yeni toplam pasif gelir
@@ -28,11 +30,16 @@ public class SkillTreeManager : MonoBehaviour
 
     private void Update()
     {
-        //pasif geliri uygula
+        //pasif geliri 5 saniyede bir uygula
         if (totalPassiveIncomePerSecond != 0f && GameStatManager.Instance != null)
         {
-            float income = totalPassiveIncomePerSecond * Time.deltaTime;
-            GameStatManager.Instance.AddWealth(income);
+            passiveIncomeTimer += Time.deltaTime;
+            if (passiveIncomeTimer >= PASSIVE_INCOME_INTERVAL)
+            {
+                float income = totalPassiveIncomePerSecond * PASSIVE_INCOME_INTERVAL;
+                GameStatManager.Instance.AddWealth(income);
+                passiveIncomeTimer = 0f;
+            }
         }
     }
 
