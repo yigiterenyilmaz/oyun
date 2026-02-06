@@ -10,10 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f0aaa824f7832b94e9010f7cdb57d8aa, type: 3}
-  m_Name: A4-FieldsOfGold
+  m_Name: A12-FieldsOfGold
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: 
-  displayName: 
+  id: a4
+  displayName: Fields Of Gold
+  description: 
   icon: {fileID: 0}
   cost: 0
   prerequisites: []
