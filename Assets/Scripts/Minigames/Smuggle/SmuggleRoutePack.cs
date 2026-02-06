@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "Smuggle/Route Pack")]
+[CreateAssetMenu(menuName = "Minigames/Smuggle/Route Pack")]
 public class SmuggleRoutePack : ScriptableObject
 {
     public string id;

@@ -8,12 +8,10 @@ public class SmuggleManager : MonoBehaviour
 
     [Header("Referanslar")]
     public MiniGameData minigameData; //MinigameManager'dan açık mı kontrolü için
-    public SmuggleDatabase database; //rota paketleri ve kurye havuzu
+    public SmuggleDatabase database; //rota paketleri, kurye havuzu ve eventler
 
-    [Header("Cooldown")]
-    public float cooldownDuration = 120f; //operasyonlar arası bekleme süresi (saniye)
-
-    [Header("Event Ayarları")]
+    [Header("Operasyon Ayarları")]
+    public float eventCheckInterval = 5f; //kaç saniyede bir event tetiklenme kontrolü
     public float eventDecisionTime = 10f; //event'te karar süresi (saniye)
 
     //mevcut operasyon durumu
@@ -21,15 +19,32 @@ public class SmuggleManager : MonoBehaviour
     private SmuggleRoutePack currentRoutePack;
     private SmuggleRoute selectedRoute;
     private SmuggleCourier selectedCourier;
-    private float cooldownTimer = 0f;
-    private bool isCooldownActive = false;
 
     //mevcut operasyonda sunulan kuryeler
     private List<SmuggleCourier> currentCourierOptions = new List<SmuggleCourier>();
 
+    //operasyon zamanlayıcı
+    private float operationDuration; //toplam operasyon süresi (saniye)
+    private float operationTimer; //geçen süre
+    private float eventCheckTimer; //event kontrol sayacı
+
+    //event sistemi
+    private SmuggleEvent currentEvent; //şu an aktif event
+    private float eventDecisionTimer; //event karar sayacı
+    private List<SmuggleEvent> triggeredEvents = new List<SmuggleEvent>(); //bu operasyonda tetiklenen eventler (tekrar tetiklenmemesi için)
+
+    //operasyon boyunca biriken modifier'lar
+    private float accumulatedSuccessModifier;
+    private float accumulatedSuspicionModifier;
+    private int accumulatedCostModifier;
+
     //events - UI bu event'leri dinleyecek
     public static event Action<SmuggleRoutePack, List<SmuggleCourier>> OnSelectionPhaseStarted; //rota paketi ve kurye seçenekleri hazır
-    public static event Action<SmuggleRoute, SmuggleCourier> OnOperationStarted; //operasyon başladı
+    public static event Action<SmuggleRoute, SmuggleCourier, float> OnOperationStarted; //operasyon başladı (rota, kurye, toplam süre)
+    public static event Action<float> OnOperationProgress; //operasyon ilerleme (0-1 arası)
+    public static event Action<SmuggleEvent> OnSmuggleEventTriggered; //operasyon sırasında event tetiklendi
+    public static event Action<float> OnEventDecisionTimerUpdate; //event karar sayacı güncellendi
+    public static event Action<SmuggleEventChoice> OnSmuggleEventResolved; //oyuncu event'te seçim yaptı
     public static event Action<SmuggleResult> OnOperationCompleted; //operasyon bitti, sonuç geldi
     public static event Action<string> OnSmuggleFailed; //minigame başlatılamadı (açık değil, cooldown vs.)
 
@@ -45,14 +60,39 @@ public class SmuggleManager : MonoBehaviour
 
     private void Update()
     {
-        //cooldown sayacı
-        if (isCooldownActive)
+        if (currentState == SmuggleState.InProgress)
         {
-            cooldownTimer -= Time.deltaTime;
-            if (cooldownTimer <= 0f)
+            //operasyon zamanlayıcısını ilerlet
+            operationTimer += Time.deltaTime;
+
+            //UI'a ilerleme bildir
+            float progress = Mathf.Clamp01(operationTimer / operationDuration);
+            OnOperationProgress?.Invoke(progress);
+
+            //event tetiklenme kontrolü
+            eventCheckTimer += Time.deltaTime;
+            if (eventCheckTimer >= eventCheckInterval)
             {
-                isCooldownActive = false;
-                cooldownTimer = 0f;
+                eventCheckTimer = 0f;
+                TryTriggerEvent();
+            }
+
+            //operasyon bitti mi
+            if (operationTimer >= operationDuration)
+            {
+                CalculateResult();
+            }
+        }
+        else if (currentState == SmuggleState.EventPhase)
+        {
+            //event karar sayacını geri say
+            eventDecisionTimer -= Time.deltaTime;
+            OnEventDecisionTimerUpdate?.Invoke(eventDecisionTimer);
+
+            //süre doldu — ilk seçeneği otomatik seç
+            if (eventDecisionTimer <= 0f)
+            {
+                ResolveEvent(0);
             }
         }
     }
@@ -70,9 +110,10 @@ public class SmuggleManager : MonoBehaviour
         }
 
         //cooldown kontrolü
-        if (isCooldownActive)
+        if (MinigameManager.Instance.IsOnCooldown(minigameData))
         {
-            OnSmuggleFailed?.Invoke("Cooldown süresi dolmadı. Kalan: " + Mathf.CeilToInt(cooldownTimer) + "s");
+            float remaining = MinigameManager.Instance.GetRemainingCooldown(minigameData);
+            OnSmuggleFailed?.Invoke("Cooldown süresi dolmadı. Kalan: " + Mathf.CeilToInt(remaining) + "s");
             return false;
         }
 
@@ -136,25 +177,93 @@ public class SmuggleManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Operasyonu başlatır. İleride event zinciri burada tetiklenecek.
+    /// Operasyonu başlatır. Süreyi hesaplar, zamanlayıcıları sıfırlar.
     /// </summary>
     private void StartOperation()
     {
         currentState = SmuggleState.InProgress;
-        OnOperationStarted?.Invoke(selectedRoute, selectedCourier);
 
-        //TODO: event zinciri burada tetiklenecek
-        //şimdilik direkt sonuç hesapla
-        CalculateResult();
+        //operasyon süresini hesapla: mesafe / (kurye hızı çarpanı)
+        //speed 0 → distance saniye, speed 50 → distance/6, speed 100 → distance/11
+        float speedFactor = Mathf.Max(selectedCourier.speed * 0.1f, 1f);
+        operationDuration = selectedRoute.distance / speedFactor;
+
+        //zamanlayıcıları sıfırla
+        operationTimer = 0f;
+        eventCheckTimer = 0f;
+
+        //event modifier'larını sıfırla
+        accumulatedSuccessModifier = 0f;
+        accumulatedSuspicionModifier = 0f;
+        accumulatedCostModifier = 0;
+        triggeredEvents.Clear();
+        currentEvent = null;
+
+        OnOperationStarted?.Invoke(selectedRoute, selectedCourier, operationDuration);
     }
 
     /// <summary>
-    /// Operasyon sonucunu hesaplar ve uygular.
+    /// Rota riskine göre event tetiklemeyi dener.
+    /// </summary>
+    private void TryTriggerEvent()
+    {
+        if (database.events == null || database.events.Count == 0) return;
+
+        //riskLevel kadar tetiklenme şansı (0-100)
+        float roll = UnityEngine.Random.Range(0f, 100f);
+        if (roll > selectedRoute.riskLevel) return;
+
+        //daha önce tetiklenmemiş eventlerden birini seç
+        List<SmuggleEvent> available = new List<SmuggleEvent>();
+        for (int i = 0; i < database.events.Count; i++)
+        {
+            if (!triggeredEvents.Contains(database.events[i]))
+                available.Add(database.events[i]);
+        }
+
+        if (available.Count == 0) return;
+
+        int idx = UnityEngine.Random.Range(0, available.Count);
+        currentEvent = available[idx];
+        triggeredEvents.Add(currentEvent);
+
+        //operasyonu duraklat, event fazına geç
+        currentState = SmuggleState.EventPhase;
+        eventDecisionTimer = eventDecisionTime;
+
+        OnSmuggleEventTriggered?.Invoke(currentEvent);
+    }
+
+    /// <summary>
+    /// Oyuncu event seçimi yaptı. UI bu metodu çağırır.
+    /// </summary>
+    public void ResolveEvent(int choiceIndex)
+    {
+        if (currentState != SmuggleState.EventPhase || currentEvent == null) return;
+
+        if (choiceIndex < 0 || choiceIndex >= currentEvent.choices.Count) return;
+
+        SmuggleEventChoice choice = currentEvent.choices[choiceIndex];
+
+        //modifier'ları biriktir
+        accumulatedSuccessModifier += choice.successModifier;
+        accumulatedSuspicionModifier += choice.suspicionModifier;
+        accumulatedCostModifier += choice.costModifier;
+
+        OnSmuggleEventResolved?.Invoke(choice);
+
+        //operasyona geri dön
+        currentEvent = null;
+        currentState = SmuggleState.InProgress;
+    }
+
+    /// <summary>
+    /// Operasyon sonucunu hesaplar ve uygular. Event modifier'larını dahil eder.
     /// </summary>
     private void CalculateResult()
     {
-        //başarı olasılığı: kurye güvenilirliği ve rota riski temel alınır
-        float successChance = selectedCourier.reliability - (selectedRoute.riskLevel * 0.5f);
+        //başarı olasılığı: kurye güvenilirliği, rota riski ve event modifier'ları
+        float successChance = selectedCourier.reliability - (selectedRoute.riskLevel * 0.5f) + accumulatedSuccessModifier;
         successChance = Mathf.Clamp(successChance, 5f, 95f); //her zaman %5-95 arası
 
         float roll = UnityEngine.Random.Range(0f, 100f);
@@ -167,13 +276,13 @@ public class SmuggleManager : MonoBehaviour
 
         if (success)
         {
-            result.wealthChange = selectedRoute.baseReward - selectedRoute.cost - selectedCourier.cost;
-            result.suspicionChange = selectedRoute.riskLevel * 0.1f; //başarılı olsa bile az şüphe
+            result.wealthChange = selectedRoute.baseReward - selectedRoute.cost - selectedCourier.cost - accumulatedCostModifier;
+            result.suspicionChange = selectedRoute.riskLevel * 0.1f + accumulatedSuspicionModifier;
         }
         else
         {
-            result.wealthChange = -(selectedRoute.cost + selectedCourier.cost); //masrafları kaybedersin
-            result.suspicionChange = selectedRoute.riskLevel * 0.3f; //başarısızlıkta daha fazla şüphe
+            result.wealthChange = -(selectedRoute.cost + selectedCourier.cost + accumulatedCostModifier);
+            result.suspicionChange = selectedRoute.riskLevel * 0.3f + accumulatedSuspicionModifier;
         }
 
         //stat'lara uygula
@@ -184,21 +293,12 @@ public class SmuggleManager : MonoBehaviour
         }
 
         //cooldown başlat
-        isCooldownActive = true;
-        cooldownTimer = cooldownDuration;
+        MinigameManager.Instance.StartCooldown(minigameData);
 
         //durumu sıfırla
         currentState = SmuggleState.Idle;
 
         OnOperationCompleted?.Invoke(result);
-    }
-
-    /// <summary>
-    /// Cooldown'dan kalan süreyi döner.
-    /// </summary>
-    public float GetRemainingCooldown()
-    {
-        return isCooldownActive ? cooldownTimer : 0f;
     }
 
     /// <summary>
@@ -208,11 +308,21 @@ public class SmuggleManager : MonoBehaviour
     {
         if (MinigameManager.Instance == null || !MinigameManager.Instance.IsMinigameUnlocked(minigameData))
             return false;
-        if (isCooldownActive)
+        if (MinigameManager.Instance.IsOnCooldown(minigameData))
             return false;
         if (currentState != SmuggleState.Idle)
             return false;
         return true;
+    }
+
+    /// <summary>
+    /// Operasyon ilerleme oranını döner (0-1). Operasyon yoksa 0.
+    /// </summary>
+    public float GetOperationProgress()
+    {
+        if (currentState != SmuggleState.InProgress && currentState != SmuggleState.EventPhase)
+            return 0f;
+        return Mathf.Clamp01(operationTimer / operationDuration);
     }
 
     public SmuggleState GetCurrentState()
@@ -229,7 +339,7 @@ public enum SmuggleState
     Idle,            //beklemede
     SelectingRoute,  //rota seçimi
     SelectingCourier,//kurye seçimi
-    InProgress,      //operasyon devam ediyor
+    InProgress,      //operasyon devam ediyor (kurye yolda)
     EventPhase       //event geldi, karar bekleniyor
 }
 

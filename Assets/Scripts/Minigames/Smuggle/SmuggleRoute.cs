@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "Smuggle/Route")]
+[CreateAssetMenu(menuName = "Minigames/Smuggle/Route")]
 public class SmuggleRoute : ScriptableObject
 {
     public string id;
