@@ -10,6 +10,7 @@ public class SkillEditor : Editor
 
         EditorGUILayout.PropertyField(serializedObject.FindProperty("id"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("displayName"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("description"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("icon"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("cost"));
 
