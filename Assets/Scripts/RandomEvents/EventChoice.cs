@@ -5,7 +5,7 @@ using UnityEngine;
 public class EventChoice //event geldiğinde oyuncuya sunulacak seçenek.
 {
     public string text;
-    public List<SkillEffect> effects;
+    [SerializeReference] public List<SkillEffect> effects = new List<SkillEffect>();
 
     [Header("Feed Override (opsiyonel)")]
     public bool overridesFeed = false; //bu seçim feed'i etkiler mi

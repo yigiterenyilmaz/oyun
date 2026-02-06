@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/UnlockFeedSlow")]
+[System.Serializable]
 public class UnlockFeedSlowEffect : SkillEffect
 {
     public override void Apply()

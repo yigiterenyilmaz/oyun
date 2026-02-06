@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/TopicWeightModifier")]
+[System.Serializable]
 public class TopicWeightModifierEffect : SkillEffect
 {
     public TopicType topic; //hangi topic etkilenecek

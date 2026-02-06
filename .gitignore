@@ -130,6 +130,9 @@ crashlytics-build.properties
 
 
 
+# Windows reserved files
+NUL
+
 # OS generated files
 
 .DS_Store

@@ -22,10 +22,7 @@ public class SkillEditor : Editor
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Effects", EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(
-            serializedObject.FindProperty("effects"),
-            true
-        );
+        SkillEffectDrawer.DrawEffectList(serializedObject.FindProperty("effects"));
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Blocks Skills", EditorStyles.boldLabel);

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/StatModifier")]
+[System.Serializable]
 public class StatModifierEffect : SkillEffect
 {
     public StatType statType; //statları değiştiren etki.

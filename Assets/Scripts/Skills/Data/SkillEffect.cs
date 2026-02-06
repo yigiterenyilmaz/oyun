@@ -1,6 +1,7 @@
-using UnityEngine;
+using System;
 
-public abstract class SkillEffect : ScriptableObject
+[Serializable]
+public abstract class SkillEffect
 {
     public abstract void Apply();
 }

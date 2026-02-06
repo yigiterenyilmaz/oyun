@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/FeedOverride")]
+[System.Serializable]
 public class FeedOverrideEffect : SkillEffect
 {
     public TopicType targetTopic; //feed'de hangi topic öne çıkacak

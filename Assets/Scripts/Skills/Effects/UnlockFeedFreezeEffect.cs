@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/UnlockFeedFreeze")]
+[System.Serializable]
 public class UnlockFeedFreezeEffect : SkillEffect
 {
     public override void Apply()

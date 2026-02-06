@@ -32,12 +32,77 @@ public class EventEditor : Editor
         );
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Choices", EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(
-            serializedObject.FindProperty("choices"),
-            true
-        );
+        DrawChoices();
 
         serializedObject.ApplyModifiedProperties();
+    }
+
+    private void DrawChoices()
+    {
+        EditorGUILayout.LabelField("Choices", EditorStyles.boldLabel);
+
+        var choicesProp = serializedObject.FindProperty("choices");
+
+        for (int i = 0; i < choicesProp.arraySize; i++)
+        {
+            var choice = choicesProp.GetArrayElementAtIndex(i);
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // Başlık ve sil butonu
+            EditorGUILayout.BeginHorizontal();
+            choice.isExpanded = EditorGUILayout.Foldout(choice.isExpanded, "Se\u00e7enek " + i);
+            if (GUILayout.Button("X", GUILayout.Width(20)))
+            {
+                choicesProp.DeleteArrayElementAtIndex(i);
+                break;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (choice.isExpanded)
+            {
+                EditorGUI.indentLevel++;
+
+                EditorGUILayout.PropertyField(choice.FindPropertyRelative("text"));
+
+                // Effects - dropdown ile
+                EditorGUILayout.Space(5);
+                SkillEffectDrawer.DrawEffectList(choice.FindPropertyRelative("effects"));
+
+                // Feed Override
+                EditorGUILayout.Space(5);
+                var overridesFeed = choice.FindPropertyRelative("overridesFeed");
+                EditorGUILayout.PropertyField(overridesFeed);
+                if (overridesFeed.boolValue)
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(choice.FindPropertyRelative("feedTopic"));
+                    EditorGUILayout.PropertyField(choice.FindPropertyRelative("feedOverrideRatio"));
+                    EditorGUILayout.PropertyField(choice.FindPropertyRelative("feedOverrideDuration"));
+                    EditorGUI.indentLevel--;
+                }
+
+                // Feed Speed Boost
+                var boostsFeedSpeed = choice.FindPropertyRelative("boostsFeedSpeed");
+                EditorGUILayout.PropertyField(boostsFeedSpeed);
+                if (boostsFeedSpeed.boolValue)
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(choice.FindPropertyRelative("boostedMinInterval"));
+                    EditorGUILayout.PropertyField(choice.FindPropertyRelative("boostedMaxInterval"));
+                    EditorGUILayout.PropertyField(choice.FindPropertyRelative("speedBoostDuration"));
+                    EditorGUI.indentLevel--;
+                }
+
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUILayout.EndVertical();
+        }
+
+        if (GUILayout.Button("Se\u00e7enek Ekle"))
+        {
+            choicesProp.arraySize++;
+        }
     }
 }

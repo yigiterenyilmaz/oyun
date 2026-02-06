@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/PassiveIncome")]
+[System.Serializable]
 public class PassiveIncomeEffect : SkillEffect
 {
     public float incomePerSecond = 10f; //saniyede kazanılacak para

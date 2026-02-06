@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/FeedSpeedBoost")]
+[System.Serializable]
 public class FeedSpeedBoostEffect : SkillEffect
 {
     public float minPostInterval = 1f; //postlar arası minimum süre (min 1 saniye)

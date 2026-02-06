@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/Effects/UnlockMinigameEffect")]
+[System.Serializable]
 public class UnlockMinigameEffect : SkillEffect
 {
     public List<MiniGameData> minigamesToBeUnlocked;

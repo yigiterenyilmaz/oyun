@@ -9,6 +9,6 @@ public class Skill : ScriptableObject
     public Sprite icon; //skill in iconu
     public int cost; //skill in bedeli
     public List<Skill> prerequisites; //skill in ön koşulları
-    public List<SkillEffect> effects; //skill açılınca oluşan efektler
+    [SerializeReference] public List<SkillEffect> effects = new List<SkillEffect>(); //skill açılınca oluşan efektler
     public List<Skill> blocksSkills; //bu skill açılınca hangi skillerin sonsuza kadar kilitlenmesi gerektiği
 }
