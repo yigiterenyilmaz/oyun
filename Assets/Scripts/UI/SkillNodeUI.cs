@@ -1,26 +1,49 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
-public class SkillNodeUI : MonoBehaviour
+// We use interfaces instead of a Button component
+public class SkillNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
+    [Header("UI References")]
     public Image iconImage;
     public GameObject lockOverlay;
-    public Button button;
-
+    
+    [Header("Settings")]
+    public float hoverScale = 1.1f;
+    
     private System.Action onClick;
+    private bool isUnlocked;
 
-    public void Setup(Sprite icon, bool isUnlocked, System.Action onClickCallback)
+    public void Setup(Sprite icon, bool unlocked, System.Action onClickCallback)
     {
-        
         iconImage.sprite = icon;
-        lockOverlay.SetActive(!isUnlocked);
-        button.interactable = isUnlocked;
-        onClick = onClickCallback;
+        lockOverlay.SetActive(!unlocked);
+        
+        this.isUnlocked = unlocked;
+        this.onClick = onClickCallback;
+
+        // Ensure the Image is set to detect clicks
+        iconImage.raycastTarget = true;
     }
 
-    public void OnNodeClick()
+    // This is the "OnClick" function now
+    public void OnPointerClick(PointerEventData eventData)
     {
+        if (!isUnlocked) return;
+
+        Debug.Log($"Node {gameObject.name} Clicked!");
         onClick?.Invoke();
-        Debug.Log("OnNodeClick");
+    }
+
+    // Visual feedback since we don't have a Button's "Hover" state
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (isUnlocked) transform.localScale = Vector3.one * hoverScale;
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        transform.localScale = Vector3.one;
     }
 }
