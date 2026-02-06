@@ -14,12 +14,11 @@ public class TreePanZoom : MonoBehaviour, IDragHandler, IScrollHandler
 
     public void OnDrag(PointerEventData eventData)
     {
-        treeContent.anchoredPosition += eventData.delta / currentZoom;
+        treeContent.anchoredPosition += eventData.delta / Mathf.Sqrt(currentZoom)  ;
     }
 
     public void OnScroll(PointerEventData eventData)
     {
-        Debug.Log(viewArea.sizeDelta);
         float scroll = eventData.scrollDelta.y;
         float newZoom = Mathf.Clamp(currentZoom + scroll * zoomSpeed, minZoom, maxZoom);
         

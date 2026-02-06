@@ -3,41 +3,79 @@ using UnityEngine.InputSystem;
 
 public class MapController : MonoBehaviour
 {
-    [Header("Referanslar")]
-    public SpriteRenderer mapRenderer; // Harita objesini buraya sürükle
+    [Header("References")]
+    public SpriteRenderer mapRenderer;
+    public MapGenerator mapGenerator; // assign in inspector
 
-    [Header("Zoom Ayarları")]
+    [Header("Zoom Settings")]
     public float zoomSpeed = 1.2f;
     public float minSize = 2f;
-    private float maxSize; // Haritaya göre otomatik hesaplanacak
+    private float maxSize;
 
     private Camera cam;
     private Vector3 dragOrigin;
-    public bool enable=true;
+    public bool enable = true;
+    private bool mapReady = false;
 
     void Awake()
     {
         cam = GetComponent<Camera>();
-        if (mapRenderer != null)
+        Debug.Log("MapController Awake, mapGenerator assigned: " + (mapGenerator != null));
+    
+        if (mapGenerator != null)
         {
-            CalculateMaxZoom();
+            mapGenerator.OnMapGenerated += OnMapReady;
+            Debug.Log("Subscribed to event");
         }
     }
 
-    // Haritanın dışındaki siyah boşlukların görünmemesi için max zoom'u otomatik ayarlar
+    void Start()
+    {
+        // Subscribe to map generated event
+        if (mapGenerator != null)
+        {
+            mapGenerator.OnMapGenerated += OnMapReady;
+        }
+    }
+
+    void OnDestroy()
+    {
+        // Unsubscribe to prevent memory leaks
+        if (mapGenerator != null)
+        {
+            mapGenerator.OnMapGenerated -= OnMapReady;
+        }
+    }
+
+    void OnMapReady()
+    {
+        Debug.Log("Map ready!");
+        if (mapRenderer != null && mapRenderer.sprite != null)
+        {
+            CalculateMaxZoom();
+            CenterCamera();
+            mapReady = true;
+        }
+    }
+
     void CalculateMaxZoom()
     {
         float mapHeight = mapRenderer.bounds.size.y / 2f;
         float mapWidthSize = (mapRenderer.bounds.size.x / 2f) / cam.aspect;
         maxSize = Mathf.Min(mapHeight, mapWidthSize);
         
-        // Başlangıçta en uzak zoom ile başla
         cam.orthographicSize = maxSize;
+    }
+
+    void CenterCamera()
+    {
+        Vector3 mapCenter = mapRenderer.bounds.center;
+        transform.position = new Vector3(mapCenter.x, mapCenter.y, transform.position.z);
     }
 
     void LateUpdate()
     {
-        if (mapRenderer == null) return;
+        if (!mapReady || mapRenderer == null) return;
 
         if (enable)
         {
@@ -45,8 +83,6 @@ public class MapController : MonoBehaviour
             HandlePan();
         }
 
-
-        // Her hareket sonrası kamerayı harita sınırlarına hapset
         transform.position = ClampCamera(transform.position);
     }
 
@@ -67,40 +103,38 @@ public class MapController : MonoBehaviour
     void HandleZoom()
     {
         float scroll = Mouse.current.scroll.ReadValue().y;
-        if (Mathf.Abs(scroll) < 0.1f) return;
+        if (scroll == 0) return;
 
-        // Zoom öncesi mouse pozisyonunu tut (Mouse'un üzerine zoom yapmak için)
         Vector3 mouseBefore = GetMouseWorldPosition();
 
         float newSize = cam.orthographicSize - (scroll * zoomSpeed * 0.01f);
         cam.orthographicSize = Mathf.Clamp(newSize, minSize, maxSize);
 
-        // Zoom sonrası mouse pozisyonu arasındaki farkı kameraya uygula
         Vector3 mouseAfter = GetMouseWorldPosition();
         transform.position += (mouseBefore - mouseAfter);
     }
 
-    // "Out of view frustum" hatasını engelleyen güvenli mouse-dünya pozisyon çevirici
-    private Vector3 GetMouseWorldPosition()
+    Vector3 GetMouseWorldPosition()
     {
-        Vector3 screenPos = Mouse.current.position.ReadValue();
-        // Z değeri 0 olmamalı, kameranın önünde bir mesafe olmalı
-        screenPos.z = 10f; 
-        return cam.ScreenToWorldPoint(screenPos);
+        Vector2 mousePos = Mouse.current.position.ReadValue();
+    
+        mousePos.x = Mathf.Clamp(mousePos.x, 0, Screen.width);
+        mousePos.y = Mathf.Clamp(mousePos.y, 0, Screen.height);
+    
+        Vector3 worldPos = cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, Mathf.Abs(cam.transform.position.z)));
+        return worldPos;
     }
 
-    private Vector3 ClampCamera(Vector3 targetPosition)
+    Vector3 ClampCamera(Vector3 targetPosition)
     {
         float camHeight = cam.orthographicSize;
         float camWidth = cam.orthographicSize * cam.aspect;
 
-        // Harita sınırlarını hesapla
         float minX = mapRenderer.bounds.min.x + camWidth;
         float maxX = mapRenderer.bounds.max.x - camWidth;
         float minY = mapRenderer.bounds.min.y + camHeight;
         float maxY = mapRenderer.bounds.max.y - camHeight;
 
-        // Kameranın yeni pozisyonunu bu sınırlar içinde tut
         float newX = Mathf.Clamp(targetPosition.x, minX, maxX);
         float newY = Mathf.Clamp(targetPosition.y, minY, maxY);
 
