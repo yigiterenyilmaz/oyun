@@ -1,7 +1,7 @@
 public enum RegionType
 {
-    Sanayi,
-    Sehir,
-    Tarim,
-    BosArazi
+    Industrial,
+    Urban,
+    Agricultural,
+    Barren
 }
