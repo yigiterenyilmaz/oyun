@@ -11,7 +11,7 @@ public class SkillTreeManager : MonoBehaviour
     private HashSet<string> blockedSkillIds = new HashSet<string>(); //sonsuza kadar kilitli skiller
 
     //passive income
-    private float totalPassiveIncomePerSecond = 0f;
+    private List<PassiveIncomeRange> passiveIncomeRanges = new List<PassiveIncomeRange>();
     private float passiveIncomeTimer = 0f;
     private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
@@ -31,13 +31,17 @@ public class SkillTreeManager : MonoBehaviour
     private void Update()
     {
         //pasif geliri 5 saniyede bir uygula
-        if (totalPassiveIncomePerSecond != 0f && GameStatManager.Instance != null)
+        if (passiveIncomeRanges.Count > 0 && GameStatManager.Instance != null)
         {
             passiveIncomeTimer += Time.deltaTime;
             if (passiveIncomeTimer >= PASSIVE_INCOME_INTERVAL)
             {
-                float income = totalPassiveIncomePerSecond * PASSIVE_INCOME_INTERVAL;
-                GameStatManager.Instance.AddWealth(income);
+                float totalIncome = 0f;
+                foreach (var range in passiveIncomeRanges)
+                {
+                    totalIncome += UnityEngine.Random.Range(range.min, range.max);
+                }
+                GameStatManager.Instance.AddWealth(totalIncome * PASSIVE_INCOME_INTERVAL);
                 passiveIncomeTimer = 0f;
             }
         }
@@ -118,16 +122,28 @@ public class SkillTreeManager : MonoBehaviour
         return true;
     }
 
-    //effect'ler bu metodu çağırarak pasif gelir kaydeder
-    public void RegisterPassiveIncome(float incomePerSecond)
+    //effect'ler bu metodu çağırarak pasif gelir aralığı kaydeder
+    public void RegisterPassiveIncome(float min, float max)
     {
-        totalPassiveIncomePerSecond += incomePerSecond;
-        OnPassiveIncomeChanged?.Invoke(totalPassiveIncomePerSecond);
+        passiveIncomeRanges.Add(new PassiveIncomeRange(min, max));
+        OnPassiveIncomeChanged?.Invoke(passiveIncomeRanges.Count);
     }
 
-    public float GetTotalPassiveIncome()
+    public int GetPassiveIncomeSourceCount()
     {
-        return totalPassiveIncomePerSecond;
+        return passiveIncomeRanges.Count;
+    }
+
+    //pasif gelir aralığını tutan basit struct
+    private struct PassiveIncomeRange
+    {
+        public float min;
+        public float max;
+        public PassiveIncomeRange(float min, float max)
+        {
+            this.min = min;
+            this.max = max;
+        }
     }
     
     public List<Skill> GetAvailableSkills()
