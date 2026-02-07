@@ -35,9 +35,11 @@ public class SmuggleManager : MonoBehaviour
     private List<SmuggleEvent> activeEventPool; //şu an aktif event havuzu (seçimlere göre değişir)
 
     //operasyon boyunca biriken modifier'lar
-    private float accumulatedSuccessModifier;
     private float accumulatedSuspicionModifier;
     private int accumulatedCostModifier;
+
+    //gecikmeli başarısızlık zamanlayıcısı (0 veya negatif = aktif değil)
+    private float pendingFailureTimer;
 
     //events - UI bu event'leri dinleyecek
     public static event Action<SmuggleRoutePack, List<SmuggleCourier>> OnSelectionPhaseStarted; //rota paketi ve kurye seçenekleri hazır
@@ -70,6 +72,17 @@ public class SmuggleManager : MonoBehaviour
             //UI'a ilerleme bildir
             float progress = Mathf.Clamp01(operationTimer / operationDuration);
             OnOperationProgress?.Invoke(progress);
+
+            //gecikmeli başarısızlık kontrolü (operasyon bitişinden önce çalışmalı)
+            if (pendingFailureTimer > 0f)
+            {
+                pendingFailureTimer -= Time.deltaTime;
+                if (pendingFailureTimer <= 0f)
+                {
+                    FailOperation();
+                    return;
+                }
+            }
 
             //event tetiklenme kontrolü
             eventCheckTimer += Time.deltaTime;
@@ -209,9 +222,9 @@ public class SmuggleManager : MonoBehaviour
         eventCheckTimer = 0f;
 
         //event modifier'larını sıfırla
-        accumulatedSuccessModifier = 0f;
         accumulatedSuspicionModifier = 0f;
         accumulatedCostModifier = 0;
+        pendingFailureTimer = 0f;
         triggeredEvents.Clear();
         currentEvent = null;
         activeEventPool = database.events; //başlangıç havuzu
@@ -290,7 +303,6 @@ public class SmuggleManager : MonoBehaviour
         SmuggleEventChoice choice = currentEvent.choices[choiceIndex];
 
         //modifier'ları biriktir
-        accumulatedSuccessModifier += choice.successModifier;
         accumulatedSuspicionModifier += choice.suspicionModifier;
         accumulatedCostModifier += choice.costModifier;
 
@@ -302,40 +314,39 @@ public class SmuggleManager : MonoBehaviour
 
         OnSmuggleEventResolved?.Invoke(choice);
 
+        //bu seçim operasyonu anında başarısız yapar mı (yakalanma, ihanet vs.)
+        if (choice.causesFailure)
+        {
+            FailOperation();
+            return;
+        }
+
+        //bu seçim gecikmeli başarısızlığa mı yol açıyor (X saniye sonra yakalanma vs.)
+        if (choice.failureDelay > 0f)
+        {
+            //kalan operasyon süresine clamp et — failure her zaman kurye varmadan en az 1 saniye önce gerçekleşmeli
+            float remainingTime = operationDuration - operationTimer;
+            pendingFailureTimer = Mathf.Min(choice.failureDelay, Mathf.Max(remainingTime - 1f, 0.1f));
+        }
+
         //operasyona geri dön
         currentEvent = null;
         currentState = SmuggleState.InProgress;
     }
 
     /// <summary>
-    /// Operasyon sonucunu hesaplar ve uygular. Event modifier'larını dahil eder.
+    /// Kurye yolun sonuna ulaştı — operasyon başarılı. Kazancı ve şüpheyi hesaplar.
     /// </summary>
     private void CalculateResult()
     {
-        //başarı olasılığı: tamamen eventlere bağlı — event yoksa veya iyi yönetildiyse başarılı
-        float successChance = 100f + accumulatedSuccessModifier;
-        successChance = Mathf.Clamp(successChance, 5f, 95f); //her zaman %5-95 arası
-
-        float roll = UnityEngine.Random.Range(0f, 100f);
-        bool success = roll <= successChance;
-
         SmuggleResult result = new SmuggleResult();
-        result.success = success;
+        result.success = true;
         result.route = selectedRoute;
         result.courier = selectedCourier;
 
-        if (success)
-        {
-            //maliyet peşin ödendi, burada sadece kazanç ve event kayıpları hesaplanır
-            result.wealthChange = currentRoutePack.baseReward - accumulatedCostModifier;
-            result.suspicionChange = selectedRoute.riskLevel * 0.1f + accumulatedSuspicionModifier;
-        }
-        else
-        {
-            //maliyet zaten ödendi, event kayıpları ek zarar olarak uygulanır
-            result.wealthChange = -accumulatedCostModifier;
-            result.suspicionChange = selectedRoute.riskLevel * 0.3f + accumulatedSuspicionModifier;
-        }
+        //maliyet peşin ödendi, burada sadece kazanç ve event kayıpları hesaplanır
+        result.wealthChange = currentRoutePack.baseReward - accumulatedCostModifier;
+        result.suspicionChange = selectedRoute.riskLevel * 0.1f + accumulatedSuspicionModifier;
 
         //stat'lara uygula
         if (GameStatManager.Instance != null)
@@ -349,6 +360,39 @@ public class SmuggleManager : MonoBehaviour
             MinigameManager.Instance.StartCooldown(minigameData);
 
         //durumu sıfırla
+        currentState = SmuggleState.Idle;
+
+        OnOperationCompleted?.Invoke(result);
+    }
+
+    /// <summary>
+    /// Operasyon yol ortasında başarısız oldu (event sonucu: yakalanma, ihanet vs.).
+    /// Maliyet zaten peşin ödendi, event kayıpları ek zarar olarak uygulanır.
+    /// </summary>
+    private void FailOperation()
+    {
+        SmuggleResult result = new SmuggleResult();
+        result.success = false;
+        result.route = selectedRoute;
+        result.courier = selectedCourier;
+
+        //maliyet zaten ödendi, event kayıpları ek zarar
+        result.wealthChange = -accumulatedCostModifier;
+        result.suspicionChange = selectedRoute.riskLevel * 0.3f + accumulatedSuspicionModifier;
+
+        //stat'lara uygula
+        if (GameStatManager.Instance != null)
+        {
+            GameStatManager.Instance.AddWealth(result.wealthChange);
+            GameStatManager.Instance.AddSuspicion(result.suspicionChange);
+        }
+
+        //cooldown başlat
+        if (MinigameManager.Instance != null)
+            MinigameManager.Instance.StartCooldown(minigameData);
+
+        //durumu sıfırla
+        currentEvent = null;
         currentState = SmuggleState.Idle;
 
         OnOperationCompleted?.Invoke(result);

@@ -26,8 +26,9 @@ public class SmuggleEventChoice
 {
     public string displayName;
     [TextArea(2, 4)] public string description;
-    public float successModifier; //başarı şansına etki (+ veya -)
     public float suspicionModifier; //şüphe değişimi
     public int costModifier; //ekstra maliyet (rüşvet, kayıp vs.)
+    public bool causesFailure; //bu seçim operasyonu anında başarısız yapar (yakalanma, ihanet vs.)
+    public float failureDelay; //0'dan büyükse operasyon X saniye sonra başarısız olur (gecikmeli yakalanma vs.)
     public List<SmuggleEvent> nextEventPool; //bu seçim yapılırsa sonraki eventler bu havuzdan gelir (boşsa zincir biter)
 }
