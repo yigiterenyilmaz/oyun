@@ -106,7 +106,7 @@ public class SmuggleManager : MonoBehaviour
         //minigame açık mı
         if (MinigameManager.Instance == null || !MinigameManager.Instance.IsMinigameUnlocked(minigameData))
         {
-            OnSmuggleFailed?.Invoke("Minigame henüz açılmadı.");
+            OnSmuggleFailed?.Invoke("Minigame is not unlocked yet.");
             return false;
         }
 
@@ -114,14 +114,14 @@ public class SmuggleManager : MonoBehaviour
         if (MinigameManager.Instance.IsOnCooldown(minigameData))
         {
             float remaining = MinigameManager.Instance.GetRemainingCooldown(minigameData);
-            OnSmuggleFailed?.Invoke("Cooldown süresi dolmadı. Kalan: " + Mathf.CeilToInt(remaining) + "s");
+            OnSmuggleFailed?.Invoke("Cooldown active. Remaining: " + Mathf.CeilToInt(remaining) + "s");
             return false;
         }
 
         //zaten aktif mi
         if (currentState != SmuggleState.Idle)
         {
-            OnSmuggleFailed?.Invoke("Zaten aktif bir operasyon var.");
+            OnSmuggleFailed?.Invoke("An operation is already in progress.");
             return false;
         }
 
@@ -172,6 +172,17 @@ public class SmuggleManager : MonoBehaviour
     public void SelectCourier(SmuggleCourier courier)
     {
         if (currentState != SmuggleState.SelectingCourier) return;
+
+        //bütçe kontrolü: rota + kurye maliyetini karşılayacak para var mı
+        int totalCost = selectedRoute.cost + courier.cost;
+        if (GameStatManager.Instance == null || !GameStatManager.Instance.HasEnoughWealth(totalCost))
+        {
+            OnSmuggleFailed?.Invoke("Not enough funds. Required: " + totalCost);
+            return;
+        }
+
+        //maliyeti peşin düş
+        GameStatManager.Instance.AddWealth(-totalCost);
 
         selectedCourier = courier;
         StartOperation();
@@ -311,12 +322,14 @@ public class SmuggleManager : MonoBehaviour
 
         if (success)
         {
-            result.wealthChange = currentRoutePack.baseReward - selectedRoute.cost - selectedCourier.cost - accumulatedCostModifier;
+            //maliyet peşin ödendi, burada sadece kazanç ve event kayıpları hesaplanır
+            result.wealthChange = currentRoutePack.baseReward - accumulatedCostModifier;
             result.suspicionChange = selectedRoute.riskLevel * 0.1f + accumulatedSuspicionModifier;
         }
         else
         {
-            result.wealthChange = -(selectedRoute.cost + selectedCourier.cost + accumulatedCostModifier);
+            //maliyet zaten ödendi, event kayıpları ek zarar olarak uygulanır
+            result.wealthChange = -accumulatedCostModifier;
             result.suspicionChange = selectedRoute.riskLevel * 0.3f + accumulatedSuspicionModifier;
         }
 
