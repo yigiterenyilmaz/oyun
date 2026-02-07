@@ -77,6 +77,9 @@ public class SmuggleManager : MonoBehaviour
             {
                 eventCheckTimer = 0f;
                 TryTriggerEvent();
+
+                //event tetiklendiyse bu frame'de sonuç hesaplama
+                if (currentState != SmuggleState.InProgress) return;
             }
 
             //operasyon bitti mi
@@ -198,7 +201,7 @@ public class SmuggleManager : MonoBehaviour
 
         //operasyon süresini hesapla: mesafe / (kurye hızı çarpanı)
         //speed 0 → distance saniye, speed 50 → distance/6, speed 100 → distance/11
-        float speedFactor = Mathf.Max(selectedCourier.speed * 0.1f, 1f);
+        float speedFactor = selectedCourier.speed * 0.1f + 1f;
         operationDuration = selectedRoute.distance / speedFactor;
 
         //zamanlayıcıları sıfırla
@@ -342,12 +345,23 @@ public class SmuggleManager : MonoBehaviour
         }
 
         //cooldown başlat
-        MinigameManager.Instance.StartCooldown(minigameData);
+        if (MinigameManager.Instance != null)
+            MinigameManager.Instance.StartCooldown(minigameData);
 
         //durumu sıfırla
         currentState = SmuggleState.Idle;
 
         OnOperationCompleted?.Invoke(result);
+    }
+
+    /// <summary>
+    /// Seçim aşamasını iptal eder. Henüz para ödenmediği için iade yoktur.
+    /// </summary>
+    public void CancelSelection()
+    {
+        if (currentState != SmuggleState.SelectingRoute && currentState != SmuggleState.SelectingCourier) return;
+
+        currentState = SmuggleState.Idle;
     }
 
     /// <summary>
