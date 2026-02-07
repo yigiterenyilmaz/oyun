@@ -15,7 +15,6 @@ MonoBehaviour:
   id: route1.1
   displayName: 
   description: 
-  riskLevel: 0
-  distance: 0
+  riskLevel: 70.2
+  distance: 100
   cost: 0
-  baseReward: 0

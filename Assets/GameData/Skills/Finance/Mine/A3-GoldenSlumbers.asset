@@ -14,7 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Skill
   id: a3
   displayName: Golden Slumbers
-  description: 
+  description: 'This skill allows you to trade gold within your current country.
+
+    You
+    start making profit by buying and selling gold in local markets.'
   icon: {fileID: 0}
   cost: 27500
   prerequisites:

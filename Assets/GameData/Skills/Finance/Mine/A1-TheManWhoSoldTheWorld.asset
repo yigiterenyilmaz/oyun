@@ -14,11 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Skill
   id: a1
   displayName: The Man Who Sold The World
+  description: "This skill marks the starting point of the finance tree.\nYou take
+    your first step into the world\u2019s dirty financial markets, earning money
+    through small, low-risk moves."
   icon: {fileID: 0}
   cost: 0
   prerequisites: []
-  effects: []
+  effects:
+  - rid: 2638472920323326020
   blocksSkills: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 2638472920323326020
+      type: {class: PassiveIncomeEffect, ns: , asm: Assembly-CSharp}
+      data:
+        minIncomePerTick: 20
+        maxIncomePerTick: 30

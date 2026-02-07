@@ -12,14 +12,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0aaa824f7832b94e9010f7cdb57d8aa, type: 3}
   m_Name: A12-FieldsOfGold
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: a4
+  id: a12
   displayName: Fields Of Gold
-  description: 
+  description: 'You open a jewelry shop and increase your income.
+
+    Precious metal
+    trading becomes a more stable and sustainable source of profit.'
   icon: {fileID: 0}
-  cost: 0
-  prerequisites: []
-  effects: []
+  cost: 50000
+  prerequisites:
+  - {fileID: 11400000, guid: 768c13daaea0f0d4da14fbda34bb8f50, type: 2}
+  effects:
+  - rid: 2638472920323326022
+  - rid: 2638472920323326023
   blocksSkills: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 2638472920323326022
+      type: {class: PassiveIncomeEffect, ns: , asm: Assembly-CSharp}
+      data:
+        minIncomePerTick: 140
+        maxIncomePerTick: 170
+    - rid: 2638472920323326023
+      type: {class: UnlockMinigameEffect, ns: , asm: Assembly-CSharp}
+      data:
+        minigamesToBeUnlocked: []

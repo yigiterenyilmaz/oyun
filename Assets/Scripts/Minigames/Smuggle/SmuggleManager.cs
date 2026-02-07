@@ -142,7 +142,15 @@ public class SmuggleManager : MonoBehaviour
             return false;
         }
 
-        //seçim aşamasını başlat
+        //daha önce seçim yapılmış ama operasyon başlatılmamışsa aynı seçenekleri sun
+        if (currentRoutePack != null && currentCourierOptions.Count > 0)
+        {
+            currentState = SmuggleState.SelectingRoute;
+            OnSelectionPhaseStarted?.Invoke(currentRoutePack, currentCourierOptions);
+            return true;
+        }
+
+        //ilk kez veya operasyon sonrası — yeni seçenekler oluştur
         StartSelectionPhase();
         return true;
     }
@@ -359,7 +367,8 @@ public class SmuggleManager : MonoBehaviour
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
 
-        //durumu sıfırla
+        //durumu ve seçenekleri sıfırla (bir sonraki açılışta yeni seçenekler gelsin)
+        ClearSelectionData();
         currentState = SmuggleState.Idle;
 
         OnOperationCompleted?.Invoke(result);
@@ -391,8 +400,9 @@ public class SmuggleManager : MonoBehaviour
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
 
-        //durumu sıfırla
+        //durumu ve seçenekleri sıfırla
         currentEvent = null;
+        ClearSelectionData();
         currentState = SmuggleState.Idle;
 
         OnOperationCompleted?.Invoke(result);
@@ -430,8 +440,9 @@ public class SmuggleManager : MonoBehaviour
             GameStatManager.Instance.AddWealth(refundAmount);
         }
 
-        //durumu sıfırla
+        //durumu ve seçenekleri sıfırla
         currentEvent = null;
+        ClearSelectionData();
         currentState = SmuggleState.Idle;
 
         OnOperationCancelled?.Invoke(refundAmount);
@@ -464,6 +475,19 @@ public class SmuggleManager : MonoBehaviour
     public SmuggleState GetCurrentState()
     {
         return currentState;
+    }
+
+    /// <summary>
+    /// Seçim verilerini temizler. Bir sonraki TryStartMinigame çağrısında yeni seçenekler oluşturulur.
+    /// Operasyon bittikten, başarısız olduktan veya iptal edildikten sonra çağrılır.
+    /// CancelSelection'da çağrılmaz — panel kapatıp açınca aynı seçenekler gelsin diye.
+    /// </summary>
+    private void ClearSelectionData()
+    {
+        currentRoutePack = null;
+        selectedRoute = null;
+        selectedCourier = null;
+        currentCourierOptions.Clear();
     }
 }
 

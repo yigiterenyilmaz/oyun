@@ -12,14 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0aaa824f7832b94e9010f7cdb57d8aa, type: 3}
   m_Name: A4-HighwayToHell
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: 
-  displayName: 
-  description: 
+  id: a4
+  displayName: Highway To Hell
+  description: 'This skill allows you to smuggle gold across borders.
+
+    When activated,
+    it unlocks a minigame where you carry out gold smuggling operations. During the
+    operation, you face unexpected conditions and must manage them to succeed.'
   icon: {fileID: 0}
-  cost: 0
-  prerequisites: []
-  effects: []
+  cost: 115000
+  prerequisites:
+  - {fileID: 11400000, guid: 86eef0c34e9163a49a710dbf760e0688, type: 2}
+  effects:
+  - rid: 2638472920323326024
   blocksSkills: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 2638472920323326024
+      type: {class: UnlockMinigameEffect, ns: , asm: Assembly-CSharp}
+      data:
+        minigamesToBeUnlocked:
+        - {fileID: 11400000, guid: 7927bdae41eeef14bb32842b707d5777, type: 2}

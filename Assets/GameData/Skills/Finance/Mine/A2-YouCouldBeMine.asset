@@ -12,13 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0aaa824f7832b94e9010f7cdb57d8aa, type: 3}
   m_Name: A2-YouCouldBeMine
   m_EditorClassIdentifier: Assembly-CSharp::Skill
-  id: 
-  displayName: 
+  id: a2
+  displayName: You Could Be Mine
+  description: 'This skill is the first step toward specializing in managing precious
+    metals.
+
+    You begin performing various operations involving gold and other
+    valuable metals, learning how this field works.'
   icon: {fileID: 0}
-  cost: 0
-  prerequisites: []
-  effects: []
+  cost: 10000
+  prerequisites:
+  - {fileID: 11400000, guid: ddc981964cfe5874bab31b5d5bf98d06, type: 2}
+  effects:
+  - rid: 2638472920323326019
   blocksSkills: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 2638472920323326019
+      type: {class: PassiveIncomeEffect, ns: , asm: Assembly-CSharp}
+      data:
+        minIncomePerTick: 35
+        maxIncomePerTick: 45
