@@ -7,12 +7,20 @@ Madenler skill dalina bagli kacakcilik operasyonu minigame'i.
 ## State Machine
 
 ```
+                     CancelSelection()
+                    ┌──────────────────── Idle
+                    │                      │
 Idle ──→ SelectingRoute ──→ SelectingCourier ──→ InProgress ←──→ EventPhase
+                                                     │               │
+                                                     │          causesFailure
+                                                     │          failureDelay
+                                                     │               │
+                                                     ├── FailOperation() ──→ Idle
                                                      │
                                                      ├── CancelOperation() ──→ Idle
                                                      │
                                                      ▼
-                                                CalculateResult ──→ Idle
+                                                CalculateResult (basari) ──→ Idle
 ```
 
 | Durum | Aciklama |
@@ -39,6 +47,8 @@ TryStartMinigame() → acik mi? cooldown'da mi? aktif mi?
     ▼
 StartSelectionPhase() → rastgele 1 rota paketi + 3 kurye secilir
     │
+    ├── CancelSelection() → Idle'a don (para odenmedi, iade yok)
+    │
     ├── SelectRoute(route)
     │
     ├── SelectCourier(courier) → butce kontrolu (route.cost + courier.cost)
@@ -54,21 +64,38 @@ StartOperation() → sure hesaplanir, zamanlayicilar baslar
     │       │
     │       ├── Event tetiklendi → EventPhase (10s karar suresi)
     │       │       │
-    │       │       ├── Oyuncu secim yapti → modifier birikir, havuz guncellenir
+    │       │       ├── causesFailure → aninda FailOperation()
+    │       │       │
+    │       │       ├── failureDelay > 0 → X saniye sonra FailOperation()
+    │       │       │
+    │       │       ├── Normal secim → modifier birikir, havuz guncellenir
     │       │       │
     │       │       └── Sure doldu → ilk secenek otomatik secilir
     │       │
     │       └── Event tetiklenmedi → devam
     │
+    ├── pendingFailureTimer doldu → FailOperation()
+    │
     ├── CancelOperation() → kismi iade, Idle'a don
     │
     ▼
-Operasyon suresi doldu → CalculateResult()
+Kurye hedefe ulasti → CalculateResult() → her zaman basari
     │
-    ├── Basari/basarisizlik (tamamen event modifier'larina bagli)
-    ├── Wealth ve suspicion degisimi uygulanir
+    ├── Kazanc ve suphe uygulanir
     └── Cooldown baslar
 ```
+
+---
+
+## Basari / Basarisizlik
+
+Basari tamamen eventlere baglidir. Zar atilmaz.
+
+- **Basari:** Kurye yolun sonuna ulastiysa → her zaman basari
+- **Aninda basarisizlik:** Event secenegi `causesFailure = true` → operasyon aninda biter
+- **Gecikmeli basarisizlik:** Event secenegi `failureDelay > 0` → X saniye sonra operasyon biter
+  - Gecikme, kalan operasyon suresine clamp edilir (her zaman varistan en az 1 saniye once patlar)
+  - EventPhase sirasinda gecikme sayaci duraklar
 
 ---
 
@@ -88,7 +115,13 @@ Basarisiz operasyonda kayip: sadece event kayiplari (maliyet zaten odendi)
 
 ## Operasyon Iptali
 
-Oyuncu `InProgress` veya `EventPhase` sirasinda operasyonu iptal edebilir.
+### Secim Asamasi
+
+`SelectingRoute` veya `SelectingCourier` sirasinda `CancelSelection()` ile iptal edilebilir. Henuz para odenmemistir, iade yoktur.
+
+### Operasyon Sirasinda
+
+Oyuncu `InProgress` veya `EventPhase` sirasinda `CancelOperation()` ile iptal edebilir.
 
 **Iade formulu:** `totalCost * (kalanYuzde / 2)`
 
@@ -119,16 +152,30 @@ Her 5 saniyede bir aktif havuzdan rastgele bir event adayi secilir. Adayin `trig
 
 ---
 
+## Event Secenekleri
+
+Her event secenegi su etkilere sahip olabilir:
+
+| Alan | Tip | Islev |
+|------|-----|-------|
+| `suspicionModifier` | float | Supheye etki (+ veya -) |
+| `costModifier` | int | Ekstra maliyet (rusvet, kayip vs.) |
+| `causesFailure` | bool | true ise operasyon aninda basarisiz olur |
+| `failureDelay` | float | 0'dan buyukse X saniye sonra operasyon basarisiz olur |
+| `nextEventPool` | List | Sonraki event havuzu (bossa zincir biter) |
+
+`causesFailure` ve `failureDelay` ayni anda kullanilmaz. `causesFailure` once kontrol edilir.
+
+---
+
 ## Sonuc Hesaplama
 
-- Basari sansi: `100 + accumulatedSuccessModifier` (tamamen eventlere bagli)
-- Her zaman %5-%95 arasi clamp edilir
-- Maliyet (route.cost + courier.cost) operasyon basinda pesin odenir
+Maliyet (route.cost + courier.cost) operasyon basinda pesin odenir.
 
-| Durum | Wealth Degisimi | Suspicion Degisimi |
-|-------|-----------------|-------------------|
-| Basari | `+routePack.baseReward - eventCosts` | `riskLevel * 0.1 + eventSuspicion` |
-| Basarisizlik | `-eventCosts` | `riskLevel * 0.3 + eventSuspicion` |
+| Durum | Ne Zaman | Wealth Degisimi | Suspicion Degisimi |
+|-------|----------|-----------------|-------------------|
+| Basari | Kurye hedefe ulasti | `+routePack.baseReward - eventCosts` | `riskLevel * 0.1 + eventSuspicion` |
+| Basarisizlik | Event sonucu (aninda/gecikmeli) | `-eventCosts` | `riskLevel * 0.3 + eventSuspicion` |
 
 - Sonrasinda cooldown baslar (MiniGameData.cooldownDuration)
 
@@ -159,7 +206,7 @@ Her 5 saniyede bir aktif havuzdan rastgele bir event adayi secilir. Adayin `trig
 | `OnSmuggleEventTriggered` | SmuggleEvent | Event tetiklendi |
 | `OnEventDecisionTimerUpdate` | float(kalan sure) | Event karar sayaci |
 | `OnSmuggleEventResolved` | SmuggleEventChoice | Oyuncu secim yapti |
-| `OnOperationCompleted` | SmuggleResult | Operasyon bitti |
+| `OnOperationCompleted` | SmuggleResult | Operasyon bitti (basari veya basarisizlik) |
 | `OnOperationCancelled` | float(iade miktari) | Operasyon iptal edildi |
 | `OnSmuggleFailed` | string(mesaj) | Baslatma basarisiz |
 
@@ -173,6 +220,7 @@ Her 5 saniyede bir aktif havuzdan rastgele bir event adayi secilir. Adayin `trig
 | `SelectRoute(route)` | Oyuncu rota secti |
 | `SelectCourier(courier)` | Oyuncu kurye secti, butce kontrolu + pesin odeme, operasyon baslar |
 | `ResolveEvent(choiceIndex)` | Oyuncu event secimi yapti |
+| `CancelSelection()` | Secim asamasini iptal eder (iade yok) |
 | `CancelOperation()` | Operasyonu iptal eder, kismi iade yapar |
 | `CanPlay()` | Minigame oynanabilir mi |
 | `GetOperationProgress()` | Operasyon ilerleme orani (0-1) |
@@ -189,7 +237,7 @@ Her 5 saniyede bir aktif havuzdan rastgele bir event adayi secilir. Adayin `trig
 | SmuggleRoutePack.cs | ScriptableObject | Rota paketi (baseReward + 4 rota) |
 | SmuggleRoute.cs | ScriptableObject | Tekil rota verisi (risk, mesafe, maliyet) |
 | SmuggleCourier.cs | ScriptableObject | Tekil kurye verisi (beceri, hiz, maliyet, ihanet) |
-| SmuggleEvent.cs | ScriptableObject | Operasyon sirasi event (triggerType, secenekler, event zinciri) |
+| SmuggleEvent.cs | ScriptableObject | Operasyon sirasi event (triggerType, secenekler, failure, event zinciri) |
 
 ---
 
