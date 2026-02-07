@@ -32,6 +32,7 @@ public class SmuggleManager : MonoBehaviour
     private SmuggleEvent currentEvent; //şu an aktif event
     private float eventDecisionTimer; //event karar sayacı
     private List<SmuggleEvent> triggeredEvents = new List<SmuggleEvent>(); //bu operasyonda tetiklenen eventler (tekrar tetiklenmemesi için)
+    private List<SmuggleEvent> activeEventPool; //şu an aktif event havuzu (seçimlere göre değişir)
 
     //operasyon boyunca biriken modifier'lar
     private float accumulatedSuccessModifier;
@@ -198,6 +199,7 @@ public class SmuggleManager : MonoBehaviour
         accumulatedCostModifier = 0;
         triggeredEvents.Clear();
         currentEvent = null;
+        activeEventPool = database.events; //başlangıç havuzu
 
         OnOperationStarted?.Invoke(selectedRoute, selectedCourier, operationDuration);
     }
@@ -207,18 +209,19 @@ public class SmuggleManager : MonoBehaviour
     /// </summary>
     private void TryTriggerEvent()
     {
-        if (database.events == null || database.events.Count == 0) return;
+        //aktif havuz boşsa veya null ise event tetiklenmez (zincir bitmiş)
+        if (activeEventPool == null || activeEventPool.Count == 0) return;
 
         //riskLevel kadar tetiklenme şansı (0-100)
         float roll = UnityEngine.Random.Range(0f, 100f);
         if (roll > selectedRoute.riskLevel) return;
 
-        //daha önce tetiklenmemiş eventlerden birini seç
+        //aktif havuzdan daha önce tetiklenmemiş eventlerden birini seç
         List<SmuggleEvent> available = new List<SmuggleEvent>();
-        for (int i = 0; i < database.events.Count; i++)
+        for (int i = 0; i < activeEventPool.Count; i++)
         {
-            if (!triggeredEvents.Contains(database.events[i]))
-                available.Add(database.events[i]);
+            if (!triggeredEvents.Contains(activeEventPool[i]))
+                available.Add(activeEventPool[i]);
         }
 
         if (available.Count == 0) return;
@@ -249,6 +252,12 @@ public class SmuggleManager : MonoBehaviour
         accumulatedSuccessModifier += choice.successModifier;
         accumulatedSuspicionModifier += choice.suspicionModifier;
         accumulatedCostModifier += choice.costModifier;
+
+        //seçime göre aktif event havuzunu güncelle
+        //nextEventPool boş veya null ise zincir biter, artık event tetiklenmez
+        activeEventPool = (choice.nextEventPool != null && choice.nextEventPool.Count > 0)
+            ? choice.nextEventPool
+            : null;
 
         OnSmuggleEventResolved?.Invoke(choice);
 

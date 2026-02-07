@@ -18,4 +18,5 @@ public class SmuggleEventChoice
     public float successModifier; //başarı şansına etki (+ veya -)
     public float suspicionModifier; //şüphe değişimi
     public int costModifier; //ekstra maliyet (rüşvet, kayıp vs.)
+    public List<SmuggleEvent> nextEventPool; //bu seçim yapılırsa sonraki eventler bu havuzdan gelir (boşsa zincir biter)
 }
