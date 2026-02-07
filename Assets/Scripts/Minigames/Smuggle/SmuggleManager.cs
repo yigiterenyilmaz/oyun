@@ -205,18 +205,14 @@ public class SmuggleManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Rota riskine göre event tetiklemeyi dener.
+    /// Aktif havuzdan event tetiklemeyi dener. Her event kendi triggerType'ına göre değerlendirilir.
     /// </summary>
     private void TryTriggerEvent()
     {
         //aktif havuz boşsa veya null ise event tetiklenmez (zincir bitmiş)
         if (activeEventPool == null || activeEventPool.Count == 0) return;
 
-        //riskLevel kadar tetiklenme şansı (0-100)
-        float roll = UnityEngine.Random.Range(0f, 100f);
-        if (roll > selectedRoute.riskLevel) return;
-
-        //aktif havuzdan daha önce tetiklenmemiş eventlerden birini seç
+        //aktif havuzdan daha önce tetiklenmemiş eventleri filtrele
         List<SmuggleEvent> available = new List<SmuggleEvent>();
         for (int i = 0; i < activeEventPool.Count; i++)
         {
@@ -226,8 +222,19 @@ public class SmuggleManager : MonoBehaviour
 
         if (available.Count == 0) return;
 
+        //rastgele bir aday event seç
         int idx = UnityEngine.Random.Range(0, available.Count);
-        currentEvent = available[idx];
+        SmuggleEvent candidate = available[idx];
+
+        //adayın triggerType'ına göre tetiklenme şansını hesapla
+        float triggerChance = GetTriggerChance(candidate.triggerType);
+
+        //roll at — şans tutmazsa bu aralıkta event tetiklenmez
+        float roll = UnityEngine.Random.Range(0f, 100f);
+        if (roll > triggerChance) return;
+
+        //event tetiklendi
+        currentEvent = candidate;
         triggeredEvents.Add(currentEvent);
 
         //operasyonu duraklat, event fazına geç
@@ -235,6 +242,24 @@ public class SmuggleManager : MonoBehaviour
         eventDecisionTimer = eventDecisionTime;
 
         OnSmuggleEventTriggered?.Invoke(currentEvent);
+    }
+
+    /// <summary>
+    /// Event türüne göre tetiklenme şansını döner (0-100).
+    /// </summary>
+    private float GetTriggerChance(SmuggleEventTrigger triggerType)
+    {
+        switch (triggerType)
+        {
+            case SmuggleEventTrigger.Risk:
+                return selectedRoute.riskLevel; //rota riski (0-100)
+            case SmuggleEventTrigger.Betrayal:
+                return selectedCourier.betrayalChance * 100f; //ihanet olasılığı (0-1 → 0-100)
+            case SmuggleEventTrigger.Exposure:
+                return 100f - selectedCourier.discretion; //gizlilik eksikliği (discretion 80 → %20 şans)
+            default:
+                return 0f;
+        }
     }
 
     /// <summary>

@@ -7,7 +7,18 @@ public class SmuggleEvent : ScriptableObject
     public string id;
     public string displayName;
     [TextArea(2, 8)] public string description; //event açıklaması (oyuncuya gösterilecek)
+    public SmuggleEventTrigger triggerType; //bu event ne tarafından tetiklenir
     public List<SmuggleEventChoice> choices; //oyuncunun seçebileceği seçenekler
+}
+
+/// <summary>
+/// Event tetiklenme kaynağı
+/// </summary>
+public enum SmuggleEventTrigger
+{
+    Risk,       //rota riskine bağlı (route.riskLevel)
+    Betrayal,   //kurye ihanet olasılığına bağlı (courier.betrayalChance)
+    Exposure    //kuryenin gizlilik eksikliğine bağlı (100 - courier.discretion)
 }
 
 [System.Serializable]
