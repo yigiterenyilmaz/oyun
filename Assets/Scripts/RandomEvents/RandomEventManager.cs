@@ -131,6 +131,10 @@ public class RandomEventManager : MonoBehaviour
 
     public void TriggerRandomEvent() //random event tetikler
     {
+        //minigame aktifken random event tetiklenmez
+        if (SmuggleManager.Instance != null && SmuggleManager.Instance.GetCurrentState() != SmuggleState.Idle)
+            return;
+
         Event evt = GetRandomEvent();
         if (evt == null)
             return;
