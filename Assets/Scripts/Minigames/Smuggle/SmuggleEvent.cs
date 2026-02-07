@@ -16,9 +16,9 @@ public class SmuggleEvent : ScriptableObject
 /// </summary>
 public enum SmuggleEventTrigger
 {
-    Risk,       //rota riskine bağlı (route.riskLevel)
-    Betrayal,   //kurye ihanet olasılığına bağlı (courier.betrayalChance)
-    Exposure    //kuryenin gizlilik eksikliğine bağlı (100 - courier.discretion)
+    Risk,           //rota riskine bağlı (route.riskLevel)
+    Betrayal,       //kurye ihanet olasılığına bağlı (courier.betrayalChance)
+    Incompetence    //kuryenin beceriksizliğine bağlı (100 - courier.reliability)
 }
 
 [System.Serializable]

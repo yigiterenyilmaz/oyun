@@ -252,11 +252,12 @@ public class SmuggleManager : MonoBehaviour
         switch (triggerType)
         {
             case SmuggleEventTrigger.Risk:
-                return selectedRoute.riskLevel; //rota riski (0-100)
+                //rota riski, kuryenin becerisi yüksekse düşer (reliability 100 → yarıya iner, 0 → tam risk)
+                return selectedRoute.riskLevel * (1f - selectedCourier.reliability / 200f);
             case SmuggleEventTrigger.Betrayal:
                 return selectedCourier.betrayalChance * 100f; //ihanet olasılığı (0-1 → 0-100)
-            case SmuggleEventTrigger.Exposure:
-                return 100f - selectedCourier.discretion; //gizlilik eksikliği (discretion 80 → %20 şans)
+            case SmuggleEventTrigger.Incompetence:
+                return 100f - selectedCourier.reliability; //beceriksizlik (reliability 80 → %20 şans)
             default:
                 return 0f;
         }
@@ -296,8 +297,8 @@ public class SmuggleManager : MonoBehaviour
     /// </summary>
     private void CalculateResult()
     {
-        //başarı olasılığı: kurye güvenilirliği, rota riski ve event modifier'ları
-        float successChance = selectedCourier.reliability - (selectedRoute.riskLevel * 0.5f) + accumulatedSuccessModifier;
+        //başarı olasılığı: tamamen eventlere bağlı — event yoksa veya iyi yönetildiyse başarılı
+        float successChance = 100f + accumulatedSuccessModifier;
         successChance = Mathf.Clamp(successChance, 5f, 95f); //her zaman %5-95 arası
 
         float roll = UnityEngine.Random.Range(0f, 100f);
