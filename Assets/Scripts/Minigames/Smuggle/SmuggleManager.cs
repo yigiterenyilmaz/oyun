@@ -48,6 +48,7 @@ public class SmuggleManager : MonoBehaviour
     public static event Action<SmuggleEventChoice> OnSmuggleEventResolved; //oyuncu event'te seçim yaptı
     public static event Action<SmuggleResult> OnOperationCompleted; //operasyon bitti, sonuç geldi
     public static event Action<string> OnSmuggleFailed; //minigame başlatılamadı (açık değil, cooldown vs.)
+    public static event Action<float> OnOperationCancelled; //operasyon iptal edildi (iade edilen miktar)
 
     private void Awake()
     {
@@ -347,6 +348,35 @@ public class SmuggleManager : MonoBehaviour
         currentState = SmuggleState.Idle;
 
         OnOperationCompleted?.Invoke(result);
+    }
+
+    /// <summary>
+    /// Operasyonu iptal eder. Kalan yola göre kısmi iade yapılır.
+    /// İade formülü: ödenen maliyet * (kalan yüzde / 2)
+    /// </summary>
+    public void CancelOperation()
+    {
+        if (currentState != SmuggleState.InProgress && currentState != SmuggleState.EventPhase) return;
+
+        //kalan yol yüzdesi (0-1)
+        float progress = Mathf.Clamp01(operationTimer / operationDuration);
+        float remaining = 1f - progress;
+
+        //iade: ödenen maliyet * (kalan% / 2)
+        int totalCost = selectedRoute.cost + selectedCourier.cost;
+        float refundAmount = totalCost * (remaining / 2f);
+
+        //iadeyi uygula
+        if (GameStatManager.Instance != null && refundAmount > 0f)
+        {
+            GameStatManager.Instance.AddWealth(refundAmount);
+        }
+
+        //durumu sıfırla
+        currentEvent = null;
+        currentState = SmuggleState.Idle;
+
+        OnOperationCancelled?.Invoke(refundAmount);
     }
 
     /// <summary>
