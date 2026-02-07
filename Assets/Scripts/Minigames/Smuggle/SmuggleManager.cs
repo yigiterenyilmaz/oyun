@@ -310,7 +310,7 @@ public class SmuggleManager : MonoBehaviour
 
         if (success)
         {
-            result.wealthChange = selectedRoute.baseReward - selectedRoute.cost - selectedCourier.cost - accumulatedCostModifier;
+            result.wealthChange = currentRoutePack.baseReward - selectedRoute.cost - selectedCourier.cost - accumulatedCostModifier;
             result.suspicionChange = selectedRoute.riskLevel * 0.1f + accumulatedSuspicionModifier;
         }
         else

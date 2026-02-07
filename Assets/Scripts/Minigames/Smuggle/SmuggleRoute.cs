@@ -10,5 +10,4 @@ public class SmuggleRoute : ScriptableObject
     [Range(0f, 100f)] public float riskLevel; //genel risk seviyesi, event tetiklenme olasılığını etkiler
     public float distance; //operasyon süresini etkiler
     public int cost; //rotayı kullanma maliyeti
-    public int baseReward; //başarılı olursa kazanç
 }
