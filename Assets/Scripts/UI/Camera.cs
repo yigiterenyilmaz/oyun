@@ -20,12 +20,10 @@ public class MapController : MonoBehaviour
     void Awake()
     {
         cam = GetComponent<Camera>();
-        Debug.Log("MapController Awake, mapGenerator assigned: " + (mapGenerator != null));
     
         if (mapGenerator != null)
         {
             mapGenerator.OnMapGenerated += OnMapReady;
-            Debug.Log("Subscribed to event");
         }
     }
 
@@ -49,7 +47,6 @@ public class MapController : MonoBehaviour
 
     void OnMapReady()
     {
-        Debug.Log("Map ready!");
         if (mapRenderer != null && mapRenderer.sprite != null)
         {
             CalculateMaxZoom();

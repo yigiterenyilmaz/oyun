@@ -159,26 +159,66 @@ public class SmuggleManager : MonoBehaviour
     /// Havuzdan rastgele rota paketi ve 3 kurye seçer, UI'a sunar.
     /// </summary>
     private void StartSelectionPhase()
+{
+    currentState = SmuggleState.SelectingRoute;
+
+    // SAFETY CHECK: Database assigned?
+    if (database == null)
     {
-        currentState = SmuggleState.SelectingRoute;
-
-        //rastgele rota paketi seç
-        int packIndex = UnityEngine.Random.Range(0, database.routePacks.Count);
-        currentRoutePack = database.routePacks[packIndex];
-
-        //rastgele 3 kurye seç (tekrarsız)
-        currentCourierOptions.Clear();
-        List<SmuggleCourier> availableCouriers = new List<SmuggleCourier>(database.couriers);
-        int courierCount = Mathf.Min(3, availableCouriers.Count);
-        for (int i = 0; i < courierCount; i++)
-        {
-            int idx = UnityEngine.Random.Range(0, availableCouriers.Count);
-            currentCourierOptions.Add(availableCouriers[idx]);
-            availableCouriers.RemoveAt(idx);
-        }
-
-        OnSelectionPhaseStarted?.Invoke(currentRoutePack, currentCourierOptions);
+        Debug.LogError("SmuggleManager: database is NULL! Assign it in the Inspector.");
+        OnSmuggleFailed?.Invoke("Database not configured.");
+        currentState = SmuggleState.Idle;
+        return;
     }
+
+    // SAFETY CHECK: Any route packs?
+    if (database.routePacks == null || database.routePacks.Count == 0)
+    {
+        Debug.LogError("SmuggleManager: database has no route packs!");
+        OnSmuggleFailed?.Invoke("No route packs available.");
+        currentState = SmuggleState.Idle;
+        return;
+    }
+
+    // Randomly select route pack
+    int packIndex = UnityEngine.Random.Range(0, database.routePacks.Count);
+    currentRoutePack = database.routePacks[packIndex];
+
+    // SAFETY CHECK: Route pack has routes?
+    if (currentRoutePack.routes == null || currentRoutePack.routes.Count == 0)
+    {
+        Debug.LogError($"SmuggleManager: Selected route pack '{currentRoutePack.name}' has no routes!");
+        OnSmuggleFailed?.Invoke("Route pack is empty.");
+        currentState = SmuggleState.Idle;
+        return;
+    }
+
+    Debug.Log($"✓ Selected route pack: {currentRoutePack.name} with {currentRoutePack.routes.Count} routes");
+
+    // Randomly select 3 couriers (no duplicates)
+    currentCourierOptions.Clear();
+    
+    if (database.couriers == null || database.couriers.Count == 0)
+    {
+        Debug.LogError("SmuggleManager: database has no couriers!");
+        OnSmuggleFailed?.Invoke("No couriers available.");
+        currentState = SmuggleState.Idle;
+        return;
+    }
+    
+    List<SmuggleCourier> availableCouriers = new List<SmuggleCourier>(database.couriers);
+    int courierCount = Mathf.Min(3, availableCouriers.Count);
+    for (int i = 0; i < courierCount; i++)
+    {
+        int idx = UnityEngine.Random.Range(0, availableCouriers.Count);
+        currentCourierOptions.Add(availableCouriers[idx]);
+        availableCouriers.RemoveAt(idx);
+    }
+
+    Debug.Log($"✓ Selected {currentCourierOptions.Count} couriers");
+
+    OnSelectionPhaseStarted?.Invoke(currentRoutePack, currentCourierOptions);
+}
 
     /// <summary>
     /// Oyuncu rota seçti. UI bu metodu çağırır.

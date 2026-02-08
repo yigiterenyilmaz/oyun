@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96d2e36e35f8f0d44b3cb875b6b092bd, type: 3}
+  m_Name: SmuggleDatabaseEnes
+  m_EditorClassIdentifier: Assembly-CSharp::SmuggleDatabase
+  routePacks:
+  - {fileID: 11400000, guid: f25bf4b62c29d1444a5ae1e80dd22f76, type: 2}
+  couriers:
+  - {fileID: 11400000, guid: 4a001eb886187e049aa31e435067f439, type: 2}
+  events:
+  - {fileID: 11400000, guid: e2c8830e2c3c93843afb73390a0d258c, type: 2}
