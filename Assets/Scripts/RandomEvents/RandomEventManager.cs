@@ -131,9 +131,16 @@ public class RandomEventManager : MonoBehaviour
 
     public void TriggerRandomEvent() //random event tetikler
     {
+        //başka bir sistem (PleasePaper vb.) event gösteriyorsa bu cycle'ı atla
+        if (!EventCoordinator.TryAcquireEventSlot("RandomEvent"))
+            return;
+
         Event evt = GetRandomEvent();
         if (evt == null)
+        {
+            EventCoordinator.ReleaseEventSlot("RandomEvent");
             return;
+        }
 
         triggeredEvents.Add(evt);
         OnEventTriggered?.Invoke(evt);
@@ -169,6 +176,9 @@ public class RandomEventManager : MonoBehaviour
                 choice.speedBoostDuration
             );
         }
+
+        //event slot'unu bırak — oyuncu seçimini yaptı, başka sistemler event gösterebilir
+        EventCoordinator.ReleaseEventSlot("RandomEvent");
     }
 
     public void SetGamePhase(int phase)
