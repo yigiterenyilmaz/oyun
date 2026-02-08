@@ -11,7 +11,7 @@ public class SmuggleManager : MonoBehaviour
     public SmuggleDatabase database; //rota paketleri, kurye havuzu ve eventler
 
     [Header("Operasyon Ayarları")]
-    public float eventCheckInterval = 5f; //kaç saniyede bir event tetiklenme kontrolü
+    public float eventCheckInterval = 15f; //kaç saniyede bir event tetiklenme kontrolü
     public float eventDecisionTime = 10f; //event'te karar süresi (saniye)
 
     //mevcut operasyon durumu
