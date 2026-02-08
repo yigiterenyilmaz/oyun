@@ -9,11 +9,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6a81e7ebc5c65ae479492f25c25aa894, type: 3}
-  m_Name: SmuggleMinigame
-  m_EditorClassIdentifier: Assembly-CSharp::MiniGameData
-  id: a
-  displayName: v
-  icon: {fileID: 0}
-  description: d
-  cooldownDuration: 300
+  m_Script: {fileID: 11500000, guid: b73c28d50f72fcf4d8c17cc26ed1c9fd, type: 3}
+  m_Name: CourierDeneme
+  m_EditorClassIdentifier: Assembly-CSharp::SmuggleCourier
+  id: b
+  displayName: b
+  description: b
+  reliability: 46
+  speed: 46
+  cost: 2
+  betrayalChance: 0.2

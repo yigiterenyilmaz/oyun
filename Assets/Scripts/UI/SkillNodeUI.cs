@@ -11,9 +11,23 @@ public class SkillNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHan
     
     [Header("Settings")]
     public float hoverScale = 1.1f;
+    public bool isSmuggleSkill = false;
+    public bool isUnlocked;
+    
+    [Header("Minigame Link")]
+    public MiniGameData linkedMinigame;  // <-- ADD THIS, assign in Inspector
     
     private System.Action onClick;
-    private bool isUnlocked;
+    
+    private void Start()
+    {
+        // If this node is marked as unlocked and has a linked minigame, unlock it
+        if (isUnlocked && linkedMinigame != null)
+        {
+            MinigameManager.Instance?.UnlockMinigame(linkedMinigame);
+            Debug.Log($"Unlocked minigame: {linkedMinigame.name}");
+        }
+    }
 
     public void Setup(Sprite icon, bool unlocked, System.Action onClickCallback)
     {
@@ -40,10 +54,16 @@ public class SkillNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHan
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (isUnlocked) transform.localScale = Vector3.one * hoverScale;
+        
+     
+           
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         transform.localScale = Vector3.one;
+        
+       
+            
     }
 }

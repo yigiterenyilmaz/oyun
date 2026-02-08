@@ -580,7 +580,7 @@ public class MapGenerator : MonoBehaviour
     {
         if (mapRenderer == null)
         {
-            Debug.LogWarning("MapGenerator: No SpriteRenderer assigned!");
+           
             return;
         }
 
