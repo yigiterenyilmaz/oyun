@@ -18,7 +18,9 @@ MonoBehaviour:
   eventType: 0
   baseReward: 0
   isFakeCrisis: 0
+  realChanceOnRepeat: 0.3
   fakeCrisisEvents: []
+  processEvents: []
   decisionTime: 10
   choices: []
   defaultChoiceIndex: -1

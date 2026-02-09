@@ -138,7 +138,7 @@ public class PleasePaperManager : MonoBehaviour
     /// </summary>
     private void UpdateOfferPending()
     {
-        offerDecisionTimer -= Time.deltaTime;
+        offerDecisionTimer -= Time.unscaledDeltaTime;
         OnOfferDecisionTimerUpdate?.Invoke(offerDecisionTimer);
 
         //süre doldu — teklifi otomatik reddet
@@ -261,6 +261,10 @@ public class PleasePaperManager : MonoBehaviour
         currentState = PleasePaperState.OfferPending;
         offerDecisionTimer = offerDecisionTime;
 
+        //oyunu duraklat — offer karar ekranında zaman durmalı
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
+
         OnOfferReceived?.Invoke(currentOffer);
     }
 
@@ -271,6 +275,10 @@ public class PleasePaperManager : MonoBehaviour
     public void AcceptOffer()
     {
         if (currentState != PleasePaperState.OfferPending || currentOffer == null) return;
+
+        //oyunu devam ettir — offer karar ekranı kapandı
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
 
         if (currentOfferIsFake)
         {
@@ -290,6 +298,10 @@ public class PleasePaperManager : MonoBehaviour
     public void RejectOffer()
     {
         if (currentState != PleasePaperState.OfferPending) return;
+
+        //oyunu devam ettir — offer karar ekranı kapandı
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
 
         //ret sayısını artır
         if (currentOffer != null)
