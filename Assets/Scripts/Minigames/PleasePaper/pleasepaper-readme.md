@@ -172,7 +172,9 @@ Süreç başarılı bittiğinde oyuncunun ne kadar kazanacağı controlStat'a g�
 | 75 | 0.5 | %75 |
 | 100 | 1.0 | %100 |
 
-controlStat tam sınırda (50) olsa bile oyuncu başarılı sayılır ama kazancı minimum düzeydedir. Başarı veya başarısızlık durumunda `OnProcessCompleted` event'i tetiklenir.
+controlStat tam sınırda (50) olsa bile oyuncu başarılı sayılır ama kazancı minimum düzeydedir.
+
+Pazarlık veya game over ekranı gösterildiğinde oyun duraklatılır (`GameManager.PauseGame()`). Oyuncu ekranı kapatana kadar hiçbir sistem çalışmaz. UI `DismissResultScreen()` çağırdığında stat'lar uygulanır ve oyun devam eder.
 
 ---
 
@@ -232,9 +234,9 @@ Sahte krizde ise eventler zincir halinde sıralı gösterilir — havuzdan rastg
 | `OnPleasePaperEventTriggered` | Event tetiklendi |
 | `OnEventDecisionTimerUpdate` | Event karar sayacı güncellendi |
 | `OnPleasePaperEventResolved` | Oyuncu event seçimi yaptı |
-| `OnBargainingStarted` | Pazarlık başladı (bargainingPower) |
-| `OnGameOver` | Süreç başarısız bitti (sebep mesajı) |
-| `OnProcessCompleted` | Süreç bitti (başarı, başarısızlık veya sahte kriz) |
+| `OnBargainingStarted` | Pazarlık başladı, oyun duraklatıldı (bargainingPower). UI `DismissResultScreen()` çağırmalı |
+| `OnGameOver` | Süreç başarısız bitti, oyun duraklatıldı (sebep mesajı). UI `DismissResultScreen()` çağırmalı |
+| `OnProcessCompleted` | Sonuç ekranı kapatıldı, stat'lar uygulandı (başarı, başarısızlık veya sahte kriz) |
 | `OnPleasePaperFailed` | Minigame başlatılamadı |
 
 ---
@@ -246,6 +248,7 @@ Sahte krizde ise eventler zincir halinde sıralı gösterilir — havuzdan rastg
 | `AcceptOffer()` | Teklifi kabul et |
 | `RejectOffer()` | Teklifi reddet |
 | `ResolveEvent(choiceIndex)` | Event seçimi yap |
+| `DismissResultScreen()` | Pazarlık/game over ekranını kapat, stat uygula, oyunu devam ettir |
 | `IsActive()` | Minigame aktif mi |
 | `GetCurrentState()` | Mevcut state |
 | `GetControlStat()` | controlStat değeri |

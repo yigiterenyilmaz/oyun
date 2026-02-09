@@ -103,8 +103,8 @@ public class SmuggleManager : MonoBehaviour
         }
         else if (currentState == SmuggleState.EventPhase)
         {
-            //event karar sayacını geri say
-            eventDecisionTimer -= Time.deltaTime;
+            //event karar sayacını geri say (oyun duraklatılmış, unscaledDeltaTime kullanılır)
+            eventDecisionTimer -= Time.unscaledDeltaTime;
             OnEventDecisionTimerUpdate?.Invoke(eventDecisionTimer);
 
             //süre doldu — ilk seçeneği otomatik seç
@@ -146,6 +146,11 @@ public class SmuggleManager : MonoBehaviour
         if (currentRoutePack != null && currentCourierOptions.Count > 0)
         {
             currentState = SmuggleState.SelectingRoute;
+
+            //oyunu duraklat — seçim ekranında zaman durmalı
+            if (GameManager.Instance != null)
+                GameManager.Instance.PauseGame();
+
             OnSelectionPhaseStarted?.Invoke(currentRoutePack, currentCourierOptions);
             return true;
         }
@@ -217,6 +222,10 @@ public class SmuggleManager : MonoBehaviour
 
     Debug.Log($"✓ Selected {currentCourierOptions.Count} couriers");
 
+    //oyunu duraklat — seçim ekranında zaman durmalı
+    if (GameManager.Instance != null)
+        GameManager.Instance.PauseGame();
+
     OnSelectionPhaseStarted?.Invoke(currentRoutePack, currentCourierOptions);
 }
 
@@ -259,6 +268,10 @@ public class SmuggleManager : MonoBehaviour
     private void StartOperation()
     {
         currentState = SmuggleState.InProgress;
+
+        //oyunu devam ettir — seçim tamamlandı, operasyon başlıyor
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
 
         //operasyon süresini hesapla: mesafe / (kurye hızı çarpanı)
         //speed 0 → distance saniye, speed 50 → distance/6, speed 100 → distance/11
@@ -309,13 +322,22 @@ public class SmuggleManager : MonoBehaviour
         float roll = UnityEngine.Random.Range(0f, 100f);
         if (roll > triggerChance) return;
 
+        //EventCoordinator cooldown kontrolü — başka bir event az önce geldiyse ertele
+        if (!EventCoordinator.CanShowEvent()) return;
+
         //event tetiklendi
         currentEvent = candidate;
         triggeredEvents.Add(currentEvent);
 
+        EventCoordinator.MarkEventShown();
+
         //operasyonu duraklat, event fazına geç
         currentState = SmuggleState.EventPhase;
         eventDecisionTimer = eventDecisionTime;
+
+        //oyunu duraklat — event karar ekranında zaman durmalı
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
 
         OnSmuggleEventTriggered?.Invoke(currentEvent);
     }
@@ -361,6 +383,10 @@ public class SmuggleManager : MonoBehaviour
             : null;
 
         OnSmuggleEventResolved?.Invoke(choice);
+
+        //oyunu devam ettir — event karar ekranı kapandı
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
 
         //bu seçim operasyonu anında başarısız yapar mı (yakalanma, ihanet vs.)
         if (choice.causesFailure)
@@ -456,6 +482,10 @@ public class SmuggleManager : MonoBehaviour
         if (currentState != SmuggleState.SelectingRoute && currentState != SmuggleState.SelectingCourier) return;
 
         currentState = SmuggleState.Idle;
+
+        //oyunu devam ettir — seçim iptal edildi
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
     }
 
     /// <summary>

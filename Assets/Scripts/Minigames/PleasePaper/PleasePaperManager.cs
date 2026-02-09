@@ -51,6 +51,9 @@ public class PleasePaperManager : MonoBehaviour
     private float accumulatedSuspicionModifier;
     private int accumulatedCostModifier;
 
+    //sonuç ekranı beklerken saklanan sonuç (pazarlık veya game over)
+    private PleasePaperResult pendingResult;
+
     //events — UI bu event'leri dinleyecek
     public static event Action<PleasePaperEvent> OnOfferReceived; //teklif geldi (Offer tipi event)
     public static event Action<float> OnOfferDecisionTimerUpdate; //teklif karar sayacı
@@ -176,11 +179,11 @@ public class PleasePaperManager : MonoBehaviour
     }
 
     /// <summary>
-    /// EventPhase: event karar sayacı geri sayıyor.
+    /// EventPhase: event karar sayacı geri sayıyor (oyun duraklatılmış, unscaledDeltaTime kullanılır).
     /// </summary>
     private void UpdateEventPhase()
     {
-        eventDecisionTimer -= Time.deltaTime;
+        eventDecisionTimer -= Time.unscaledDeltaTime;
         OnEventDecisionTimerUpdate?.Invoke(eventDecisionTimer);
 
         //süre doldu — default seçeneği otomatik seç
@@ -244,8 +247,6 @@ public class PleasePaperManager : MonoBehaviour
     {
         if (currentState != PleasePaperState.OfferPending) return;
 
-
-
         currentOffer = null;
         currentState = PleasePaperState.Idle;
         nextOfferTime = UnityEngine.Random.Range(minOfferInterval, maxOfferInterval);
@@ -281,12 +282,21 @@ public class PleasePaperManager : MonoBehaviour
             return;
         }
 
+        //EventCoordinator cooldown kontrolü
+        if (!EventCoordinator.CanShowEvent()) return;
+
         currentEvent = currentOffer.fakeCrisisEvents[fakeCrisisEventIndex];
         fakeCrisisEventIndex++;
+
+        EventCoordinator.MarkEventShown();
 
         stateBeforeEvent = PleasePaperState.FakeCrisisProcess;
         currentState = PleasePaperState.EventPhase;
         eventDecisionTimer = currentEvent.decisionTime;
+
+        //oyunu duraklat — event karar ekranında zaman durmalı
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
 
         OnPleasePaperEventTriggered?.Invoke(currentEvent);
     }
@@ -315,8 +325,6 @@ public class PleasePaperManager : MonoBehaviour
         //cooldown başlat
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
-
-
 
         //durumu sıfırla
         ResetState();
@@ -361,15 +369,24 @@ public class PleasePaperManager : MonoBehaviour
 
         if (available.Count == 0) return;
 
+        //EventCoordinator cooldown kontrolü
+        if (!EventCoordinator.CanShowEvent()) return;
+
         //rastgele bir event seç
         int idx = UnityEngine.Random.Range(0, available.Count);
         currentEvent = available[idx];
         triggeredEvents.Add(currentEvent);
 
+        EventCoordinator.MarkEventShown();
+
         //event fazına geç
         stateBeforeEvent = PleasePaperState.ActiveProcess;
         currentState = PleasePaperState.EventPhase;
         eventDecisionTimer = currentEvent.decisionTime;
+
+        //oyunu duraklat — event karar ekranında zaman durmalı
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
 
         OnPleasePaperEventTriggered?.Invoke(currentEvent);
     }
@@ -401,6 +418,10 @@ public class PleasePaperManager : MonoBehaviour
 
         currentEvent = null;
 
+        //oyunu devam ettir — event karar ekranı kapandı
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
+
         //hangi state'ten geldiğimize göre geri dön
         if (stateBeforeEvent == PleasePaperState.FakeCrisisProcess)
         {
@@ -412,7 +433,7 @@ public class PleasePaperManager : MonoBehaviour
             //gerçek kriz — controlStat 0 kontrolü
             if (controlStat <= 0f)
             {
-                FailProcess();
+                FailProcess(); //tekrar duraklatır (game over ekranı)
                 return;
             }
 
@@ -437,7 +458,7 @@ public class PleasePaperManager : MonoBehaviour
 
     /// <summary>
     /// Pazarlık fazını başlatır. bargainingPower controlStat'a göre hesaplanır.
-    /// Endgame event'i (index 0) tetiklenir.
+    /// Oyun duraklatılır — UI DismissResultScreen() çağırana kadar bekler.
     /// </summary>
     private void StartBargaining()
     {
@@ -445,69 +466,62 @@ public class PleasePaperManager : MonoBehaviour
 
         float bargainingPower = (controlStat - 50f) / 50f; //0.0 - 1.0 arası
 
-        OnBargainingStarted?.Invoke(bargainingPower);
-
-        CompleteBargaining(bargainingPower);
-    }
-
-    /// <summary>
-    /// Pazarlık tamamlandı. Nihai kazanç hesaplanır, stat'lara uygulanır.
-    /// </summary>
-    private void CompleteBargaining(float bargainingPower)
-    {
-        PleasePaperResult result = new PleasePaperResult();
-        result.success = true;
-        result.isFakeCrisis = false;
-        result.offer = currentOffer;
-        result.bargainingPower = bargainingPower;
-        result.finalControlStat = controlStat;
-
-        //kazanç: taban ödül * (0.5 + pazarlık gücü * 0.5)
-        //controlStat 50 → %50 kazanç, controlStat 100 → %100 kazanç
-        result.wealthChange = currentOffer.baseReward * (0.5f + bargainingPower * 0.5f)
+        //sonucu hazırla ama hemen uygulama — oyuncu ekranı görsün
+        pendingResult = new PleasePaperResult();
+        pendingResult.success = true;
+        pendingResult.isFakeCrisis = false;
+        pendingResult.offer = currentOffer;
+        pendingResult.bargainingPower = bargainingPower;
+        pendingResult.finalControlStat = controlStat;
+        pendingResult.wealthChange = currentOffer.baseReward * (0.5f + bargainingPower * 0.5f)
             - accumulatedCostModifier;
-        result.suspicionChange = accumulatedSuspicionModifier;
+        pendingResult.suspicionChange = accumulatedSuspicionModifier;
 
-        //stat'lara uygula
-        if (GameStatManager.Instance != null)
-        {
-            if (result.wealthChange != 0)
-                GameStatManager.Instance.AddWealth(result.wealthChange);
-            if (result.suspicionChange != 0)
-                GameStatManager.Instance.AddSuspicion(result.suspicionChange);
-        }
+        //oyunu duraklat — pazarlık ekranında zaman durmalı
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
 
-        //cooldown başlat
-        if (MinigameManager.Instance != null)
-            MinigameManager.Instance.StartCooldown(minigameData);
-
-
-
-        //durumu sıfırla
-        ResetState();
-
-        OnProcessCompleted?.Invoke(result);
+        OnBargainingStarted?.Invoke(bargainingPower);
     }
 
     /// <summary>
     /// Süreç başarısız oldu. controlStat 0'a düştü veya süreç sonunda < 50.
+    /// Oyun duraklatılır — UI DismissResultScreen() çağırana kadar bekler.
     /// </summary>
     private void FailProcess()
     {
+        currentState = PleasePaperState.BargainingPhase; //sonuç ekranı bekliyor
+
         string reason = controlStat <= 0f
             ? "Control stat dropped to zero."
             : "Control stat below threshold at process end.";
+
+        //sonucu hazırla ama hemen uygulama — oyuncu game over ekranını görsün
+        pendingResult = new PleasePaperResult();
+        pendingResult.success = false;
+        pendingResult.isFakeCrisis = false;
+        pendingResult.offer = currentOffer;
+        pendingResult.finalControlStat = controlStat;
+        pendingResult.wealthChange = -accumulatedCostModifier;
+        pendingResult.suspicionChange = accumulatedSuspicionModifier;
+
+        //oyunu duraklat — game over ekranında zaman durmalı
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
+
         OnGameOver?.Invoke(reason);
+    }
 
-        PleasePaperResult result = new PleasePaperResult();
-        result.success = false;
-        result.isFakeCrisis = false;
-        result.offer = currentOffer;
-        result.finalControlStat = controlStat;
+    /// <summary>
+    /// Pazarlık veya game over sonuç ekranını kapatır. UI bu metodu çağırır.
+    /// Stat'lar uygulanır, oyun devam eder, cooldown başlar.
+    /// </summary>
+    public void DismissResultScreen()
+    {
+        if (pendingResult == null) return;
 
-        //event kayıpları ek zarar
-        result.wealthChange = -accumulatedCostModifier;
-        result.suspicionChange = accumulatedSuspicionModifier;
+        PleasePaperResult result = pendingResult;
+        pendingResult = null;
 
         //stat'lara uygula
         if (GameStatManager.Instance != null)
@@ -522,7 +536,9 @@ public class PleasePaperManager : MonoBehaviour
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
 
-
+        //oyunu devam ettir
+        if (GameManager.Instance != null)
+            GameManager.Instance.ResumeGame();
 
         //durumu sıfırla
         ResetState();
