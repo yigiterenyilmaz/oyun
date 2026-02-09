@@ -63,7 +63,9 @@ public class PleasePaperManager : MonoBehaviour
     public static event Action<float> OnBargainingStarted; //pazarlık başladı (bargainingPower)
     public static event Action<string> OnGameOver; //süreç başarısız bitti (sebep)
     public static event Action<PleasePaperResult> OnProcessCompleted; //süreç bitti
-    public static event Action<string> OnPleasePaperFailed; //minigame başlatılamadı
+#pragma warning disable 0067
+    public static event Action<string> OnPleasePaperFailed; //minigame başlatılamadı (ileride kullanılacak)
+#pragma warning restore 0067
 
     private void Awake()
     {
