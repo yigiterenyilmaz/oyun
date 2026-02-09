@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b73c28d50f72fcf4d8c17cc26ed1c9fd, type: 3}
   m_Name: CourierDeneme
   m_EditorClassIdentifier: Assembly-CSharp::SmuggleCourier
-  id: b
+  id: efe
   displayName: b
   description: b
   reliability: 46

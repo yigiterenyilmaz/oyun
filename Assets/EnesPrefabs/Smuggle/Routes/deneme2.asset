@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5007788d02416ef4280cce535c2404da, type: 3}
   m_Name: deneme2
   m_EditorClassIdentifier: Assembly-CSharp::SmuggleRoute
-  id: a
-  displayName: a
+  id: "k\xFCtahya"
+  displayName: "k\xFCtahya"
   description: a
   riskLevel: 67
   distance: 1
