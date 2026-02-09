@@ -26,6 +26,11 @@ public class WarForOilDatabase : ScriptableObject
     public float minWinChance = 0.1f; //minimum kazanma şansı
     public float maxWinChance = 0.9f; //maximum kazanma şansı
 
+    [Header("Ateşkes Ayarları")]
+    public float ceasefireMinSupport = 40f; //ateşkes yapabilmek için minimum destek değeri
+    public float ceasefirePenalty = 100f; //en kötü ateşkesteki para kaybı (minSupport'ta)
+    public float ceasefireMaxReward = 200f; //en iyi ateşkesteki max kazanç çarpanı (support 100'de)
+
     [Header("Ödül/Ceza Ayarları")]
     public float baseWarReward = 500f; //savaş kazanıldığında base ödül
     public float warLossPenalty = 200f; //savaş kaybedildiğinde para kaybı

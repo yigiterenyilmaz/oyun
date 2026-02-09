@@ -53,6 +53,7 @@ public class WarForOilManager : MonoBehaviour
     public static event Action<WarForOilEvent> OnWarEventTriggered; //event tetiklendi
     public static event Action<float> OnEventDecisionTimerUpdate; //event karar sayacı
     public static event Action<WarForOilEventChoice> OnWarEventResolved; //seçim yapıldı
+    public static event Action<WarForOilResult> OnCeasefireResult; //ateşkes sonucu
     public static event Action<WarForOilResult> OnWarResultReady; //sonuç hesaplandı, sonuç ekranını göster
     public static event Action<WarForOilResult> OnWarFinished; //sonuç ekranı kapatıldı, her şey bitti
     public static event Action<List<WarForOilCountry>> OnActiveCountriesChanged; //UI'daki ülke listesi değişti
@@ -191,6 +192,45 @@ public class WarForOilManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Oyuncu ateşkes talep etti. SupportStat'a göre kazanç/kayıp hesaplanır.
+    /// Ülke fethedilmez, minigame kapanmaz.
+    /// </summary>
+    public void RequestCeasefire()
+    {
+        if (currentState != WarForOilState.WarProcess) return;
+        if (supportStat < database.ceasefireMinSupport) return;
+
+        //ateşkes oranı: 0 (en kötü) → 1 (en iyi)
+        float ratio = (supportStat - database.ceasefireMinSupport)
+            / (100f - database.ceasefireMinSupport);
+
+        //kazanç hesapla: düşük support → zarar, yüksek support → kâr
+        float wealthChange = Mathf.Lerp(
+            -database.ceasefirePenalty,
+            database.ceasefireMaxReward * selectedCountry.resourceRichness,
+            ratio
+        ) - accumulatedCostModifier;
+
+        pendingResult = new WarForOilResult();
+        pendingResult.country = selectedCountry;
+        pendingResult.warWon = false;
+        pendingResult.wasCeasefire = true;
+        pendingResult.finalSupportStat = supportStat;
+        pendingResult.winChance = 0f;
+        pendingResult.wealthChange = wealthChange;
+        pendingResult.suspicionChange = accumulatedSuspicionModifier;
+        pendingResult.politicalInfluenceChange = 0f;
+
+        currentState = WarForOilState.ResultPhase;
+
+        //oyunu duraklat
+        if (GameManager.Instance != null)
+            GameManager.Instance.PauseGame();
+
+        OnCeasefireResult?.Invoke(pendingResult);
+    }
+
+    /// <summary>
     /// Sonuç ekranını kapatır. UI bu metodu çağırır.
     /// Stat'lar uygulanır, oyun devam eder, cooldown başlar.
     /// </summary>
@@ -212,8 +252,8 @@ public class WarForOilManager : MonoBehaviour
                 GameStatManager.Instance.AddPoliticalInfluence(result.politicalInfluenceChange);
         }
 
-        //savaş kaybedildiyse minigame kalıcı olarak devre dışı
-        if (!result.warWon)
+        //savaş kaybedildiyse minigame kalıcı olarak devre dışı (ateşkes hariç)
+        if (!result.warWon && !result.wasCeasefire)
             permanentlyDisabled = true;
 
         //cooldown başlat (kazanıldıysa)
@@ -533,6 +573,12 @@ public class WarForOilManager : MonoBehaviour
         return conqueredCountries.Contains(country);
     }
 
+    public bool CanRequestCeasefire()
+    {
+        return currentState == WarForOilState.WarProcess
+            && supportStat >= database.ceasefireMinSupport;
+    }
+
     public WarForOilState GetCurrentState()
     {
         return currentState;
@@ -582,6 +628,7 @@ public class WarForOilResult
 {
     public WarForOilCountry country;
     public bool warWon;
+    public bool wasCeasefire;
     public float finalSupportStat;
     public float winChance; //hesaplanan kazanma şansı
     public float wealthChange;

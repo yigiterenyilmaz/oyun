@@ -71,6 +71,9 @@ Tum minigame ayarlarinin tek noktadan yonetildigi ScriptableObject.
 | `supportWinBonus` | 0.625 | Tam destegin kazanma sansina max katkisi |
 | `minWinChance` | 0.1 | Minimum kazanma sansi (%10) |
 | `maxWinChance` | 0.9 | Maximum kazanma sansi (%90) |
+| `ceasefireMinSupport` | 40 | Ateskes yapabilmek icin minimum destek degeri |
+| `ceasefirePenalty` | 100 | En kotu ateskesteki para kaybi |
+| `ceasefireMaxReward` | 200 | En iyi ateskesteki max kazanc carpani |
 | `baseWarReward` | 500 | Kazanma odulu (base) |
 | `warLossPenalty` | 200 | Kaybetme para cezasi |
 | `warLossPoliticalPenalty` | 20 | Kaybetme siyasi nufuz dususu |
@@ -122,6 +125,7 @@ Savas sonucu. Manager tarafindan olusturulur, event'lerle UI'a iletilir.
 |------|----------|
 | `country` | Savas yapilan ulke |
 | `warWon` | Kazanildi mi |
+| `wasCeasefire` | Ateskes mi yapildi |
 | `finalSupportStat` | Savas sonu destek degeri |
 | `winChance` | Hesaplanan kazanma sansi |
 | `wealthChange` | Para degisimi (+ kazanc, - kayip) |
@@ -179,6 +183,32 @@ politicalInfluenceChange = -warLossPoliticalPenalty
 
 - Savas kaybedilirse **minigame kalici olarak kapanir** (bir daha oynamaz)
 
+### Ateskes
+
+Savas sirasinda oyuncu `supportStat >= ceasefireMinSupport` ise ateskes talep edebilir.
+
+```
+ratio = (supportStat - ceasefireMinSupport) / (100 - ceasefireMinSupport)
+wealthChange = lerp(-ceasefirePenalty, ceasefireMaxReward * resourceRichness, ratio) - accumulatedCostModifier
+```
+
+Varsayilan degerlerle (resourceRichness = 0.5):
+
+| supportStat | ratio | wealthChange |
+|-------------|-------|--------------|
+| 40 | 0.0 | -100 (zararli) |
+| 60 | 0.33 | -33 (hafif zararli) |
+| 70 | 0.5 | 0 (basabas) |
+| 85 | 0.75 | +50 (karli) |
+| 100 | 1.0 | +100 (max kar) |
+
+**Kurallar:**
+- supportStat < 40 → ateskes **kullanilamaz** (kaybeden taraf masaya oturamaz)
+- Ulke fethedilmez (tekrar saldiriabilir)
+- Minigame **kapanmaz**
+- Cooldown baslar
+- Siyasi nufuz degismez, sadece biriken suspicion uygulanir
+
 ---
 
 ## Ulke Rotasyonu
@@ -209,6 +239,7 @@ UI'da ayni anda `visibleCountryCount` (varsayilan 3) ulke gosterilir. Her `rotat
 | `AttemptPressure()` | — | Baski denemesi. Basarili → savas baslar. Basarisiz → cooldown. |
 | `CancelPressure()` | — | Baskidan vazgecip Idle'a doner. |
 | `ResolveEvent(choiceIndex)` | int | Event secimi yapar, modifier'lari uygular, savasa geri doner. |
+| `RequestCeasefire()` | — | Ateskes talep eder. supportStat >= minSupport gerekir. |
 | `DismissResultScreen()` | — | Sonuc ekranini kapatir, stat'lari uygular, cooldown baslatir. |
 
 ### Events (UI Dinleyecek)
@@ -223,6 +254,7 @@ UI'da ayni anda `visibleCountryCount` (varsayilan 3) ulke gosterilir. Her `rotat
 | `OnWarEventTriggered` | WarForOilEvent | Event tetiklendi |
 | `OnEventDecisionTimerUpdate` | float | Event karar sayaci |
 | `OnWarEventResolved` | WarForOilEventChoice | Seçim yapildi |
+| `OnCeasefireResult` | WarForOilResult | Ateskes sonucu, ekran goster |
 | `OnWarResultReady` | WarForOilResult | Sonuc hazir, ekran goster |
 | `OnWarFinished` | WarForOilResult | Sonuc ekrani kapandi, her sey bitti |
 | `OnActiveCountriesChanged` | List\<WarForOilCountry\> | Ulke listesi degisti |
@@ -234,6 +266,7 @@ UI'da ayni anda `visibleCountryCount` (varsayilan 3) ulke gosterilir. Her `rotat
 | `IsActive()` | bool | Minigame aktif mi (Idle degilse true) |
 | `IsPermanentlyDisabled()` | bool | Kalici devre disi mi |
 | `IsCountryConquered(country)` | bool | Ulke isgal edilmis mi |
+| `CanRequestCeasefire()` | bool | Ateskes talep edilebilir mi |
 | `GetCurrentState()` | WarForOilState | Mevcut durum |
 | `GetSelectedCountry()` | WarForOilCountry | Secili ulke |
 | `GetSupportStat()` | float | Destek degeri |
@@ -272,9 +305,12 @@ Event tetiklendiginde `EventCoordinator.MarkEventShown()` cagirilir → diger si
 5. **Event gelir** → oyun durur, oyuncu secer → `ResolveEvent()`
    - supportStat ve modifier'lar guncellenir
 6. **Savas biter** → olasilik kontrolu → kazanma/kaybetme
+   - **Alternatif:** Oyuncu savas sirasinda ateskes talep edebilir → `RequestCeasefire()`
+   - supportStat >= 40 gerekir, dusuk support → zarar, yuksek support → kar
 7. **Sonuc ekrani** → oyuncu kapatir → `DismissResultScreen()`
    - Kazanildiysa: odul, ulke conquered
    - Kaybedildiyse: ceza, **minigame kalici kapanir**
+   - Ateskesse: support'a gore kazanc/kayip, minigame kapanmaz
 
 ---
 
