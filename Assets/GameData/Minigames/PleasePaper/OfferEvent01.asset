@@ -12,12 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e994f2288153c844c8fd5c494f337f48, type: 3}
   m_Name: OfferEvent01
   m_EditorClassIdentifier: Assembly-CSharp::PleasePaperEvent
-  id: 
-  displayName: 
-  description: 
+  id: oev01
+  displayName: Altaris Country May Go Bankrupt
+  description: "detayl\u0131 description kullan\u0131c\u0131ya bilgiler verilir kullan\u0131c\u0131
+    ikna olursa devam eder"
   eventType: 0
   baseReward: 0
-  isFakeCrisis: 0
+  isFakeCrisis: 1
   fakeCrisisEvents: []
   decisionTime: 10
   choices: []

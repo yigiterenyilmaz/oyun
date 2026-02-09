@@ -51,22 +51,24 @@ Idle — offerTimer geri sayıyor (90-150s)
     ▼
 GenerateOffer() → EventCoordinator slot kontrolü
     │
-    ├── Slot doluysa → bu cycle atlanır, yeni interval başlar
+    ├── Slot doluysa → sonraki frame tekrar dener (timer sıfırlanmaz)
     │
-    ├── Slot boşsa → slot alınır, offerEvents havuzundan rastgele teklif seçilir
+    ├── Slot boşsa → completedRealOffers ve lastOffer filtrelenir, havuzdan teklif seçilir
+    │     ├── İlk kez gelen offer → isFakeCrisis değeri geçerli
+    │     └── revealedFakeOffers'daki offer → realChanceOnRepeat'e göre gerçek/fake belirlenir
     │
     ▼
 OfferPending — oyuncuya teklif event'inin bilgisi sunulur (15s)
     │
     ├── RejectOffer() → slot bırakılır, Idle'a dön
     │
-    ├── AcceptOffer() → isFakeCrisis kontrolü
+    ├── AcceptOffer() → currentOfferIsFake kontrolü (runtime'da belirlenir)
     │       │
     │       ├── Sahte kriz → StartFakeCrisisProcess()
     │       │       │
     │       │       ├── Offer'ın fakeCrisisEvents zinciri sırayla gösterilir
     │       │       │
-    │       │       └── Zincir bitti → CompleteFakeCrisis() → zarar uygulanır, Idle
+    │       │       └── Zincir bitti → CompleteFakeCrisis() → zarar uygulanır, revealedFakeOffers'a ekle, Idle
     │       │
     │       └── Gerçek kriz → StartActiveProcess()
     │               │
@@ -107,7 +109,7 @@ Tüm eventler tek `PleasePaperEvent` sınıfından oluşturulur. `eventType` ala
 | Süreç eventleri | Process | Choices ile controlStat etkiler. Database'de `processEvents` listesinde |
 
 Inspector'da `eventType` seçilince:
-- **Offer** → baseReward, isFakeCrisis, fakeCrisisEvents alanları görünür
+- **Offer** → baseReward, isFakeCrisis, realChanceOnRepeat, fakeCrisisEvents, processEvents alanları görünür
 - **FakeCrisis / Process** → choices listesi, karar süresi, default seçenek görünür
 
 ---
@@ -122,14 +124,15 @@ Sağ tık → Create → Minigames → PleasePaper → Event veya Database.
 ```
 PleasePaperDatabase
   ├─ offerEvents (Offer tipinde event'ler)
-  │    ├─ Venezuela Krizi (isFakeCrisis = false) → gerçek kriz
+  │    ├─ Venezuela Krizi (isFakeCrisis = false)
+  │    │    └─ processEvents: [Grev, Sızıntı, Pusu]  ← bu offer'a özel süreç eventleri
+  │    │
   │    └─ Kıbrıs Tuzağı (isFakeCrisis = true)
-  │         └─ fakeCrisisEvents: [Adım1, Adım2, Adım3]  ← FakeCrisis tipinde event'ler
+  │         ├─ fakeCrisisEvents: [Adım1, Adım2, Adım3]  ← sahte kriz zinciri
+  │         └─ processEvents: [Grev2, Pusu2]  ← gerçeğe dönüşürse kullanılacak eventler
   │
-  └─ processEvents (Process tipinde event'ler)
-       ├─ İşçi Grevi
-       ├─ Medya Sızıntısı
-       └─ Nakliye Pususu
+  └─ processEvents (Process tipinde yedek event'ler)
+       └─ Offer'ın kendi processEvents'i boşsa buradan çekilir
 ```
 
 ### Oluşturma Sırası
@@ -137,11 +140,12 @@ PleasePaperDatabase
 1. **Process event'leri** oluştur (eventType = Process, seçenekler + modifier'lar doldur)
 2. **FakeCrisis event'leri** oluştur (eventType = FakeCrisis, zincirin her adımı ayrı asset)
 3. **Offer event'leri** oluştur (eventType = Offer):
-   - Gerçek kriz: isFakeCrisis = false, baseReward doldur
-   - Sahte kriz: isFakeCrisis = true, fakeCrisisEvents listesine FakeCrisis event'lerini sırayla sürükle
-4. **Database** oluştur → offerEvents ve processEvents listelerine ilgili event'leri sürükle
+   - Gerçek kriz: isFakeCrisis = false, baseReward doldur, processEvents'e bu offer'a ait süreç eventlerini sürükle
+   - Sahte kriz: isFakeCrisis = true, realChanceOnRepeat ayarla, fakeCrisisEvents listesine FakeCrisis event'lerini sürükle, processEvents'e gerçeğe dönüşürse kullanılacak eventleri sürükle
+4. **Database** oluştur → offerEvents listesine offer'ları sürükle, processEvents listesine yedek eventleri sürükle (opsiyonel)
 
 FakeCrisis event'leri database'e eklenmez — sahte Offer event'inin içindeki `fakeCrisisEvents` listesine bağlanır.
+Process event'leri her Offer'ın kendi `processEvents` listesine bağlanır. Database'deki `processEvents` sadece yedek havuzdur.
 
 ---
 
@@ -178,9 +182,26 @@ Pazarlık veya game over ekranı gösterildiğinde oyun duraklatılır (`GameMan
 
 ---
 
-## Sahte Kriz
+## Sahte Kriz ve Offer Tekrar Sistemi
 
-Bazı teklif event'lerinin `isFakeCrisis = true` alanı vardır. Oyuncu bu teklifi kabul ederse gerçek bir süreç başlamaz — bunun yerine teklif event'inin `fakeCrisisEvents` listesindeki eventler sırayla gösterilir. Her event oyuncuya zarar verir (wealth kaybı, suspicion artışı). Zincir bitince sonuç hesaplanır — oyuncu her durumda zararlı çıkar.
+Offer event'leri Inspector'da `isFakeCrisis = true/false` olarak belirlenir. İlk gelişte offer tam olarak belirlendiği gibi davranır.
+
+**Gerçek offer (isFakeCrisis = false):**
+- Oyuncu kabul ederse gerçek kriz süreci başlar (ActiveProcess).
+- Kabul edildiğinde havuzdan **kalıcı olarak** çıkar — bir daha asla gelmez.
+- Reddedilirse havuzda kalır, tekrar gelebilir (yine gerçek olarak).
+
+**Sahte offer (isFakeCrisis = true):**
+- İlk gelişte **kesinlikle** sahte kriz olarak çalışır.
+- Oyuncu kabul edip sahte olduğu ortaya çıktıktan sonra `revealedFakeOffers`'a eklenir.
+- Tekrar geldiğinde `realChanceOnRepeat` değerine göre gerçek kriz olarak gelebilir (veya yine sahte olabilir).
+- Gerçek olarak gelip kabul edilirse → gerçek kriz süreci başlar, havuzdan kalıcı olarak çıkar.
+
+**Art arda tekrar engeli:** Aynı offer arka arkaya iki kez gelemez (`lastOffer` takibi).
+
+**Inspector alanları (Offer tipinde, isFakeCrisis = true iken):**
+- `realChanceOnRepeat` (0-1): Sahte kriz ortaya çıktıktan sonra tekrar geldiğinde gerçek olma olasılığı. 0 = hep fake, 1 = hep gerçek. Varsayılan 0.3.
+- `fakeCrisisEvents`: Sahte kriz event zinciri (sadece fake olarak çalıştığında kullanılır).
 
 Oyuncunun sahte krizi gerçek krizden ayırt edecek bilgiye sahip olması beklenir (event açıklaması, ipuçları vb.).
 
@@ -214,9 +235,11 @@ Sonrasında cooldown başlar (MiniGameData.cooldownDuration).
 
 ## Event Sistemi
 
-Gerçek kriz sürecinde her 15 saniyede bir aktif havuzdan rastgele bir event seçilir. Aynı event bir süreçte iki kez tetiklenmez. Oyuncu seçiminde `nextEventPool` varsa aktif havuz değişir (event zinciri). `nextEventPool` boş veya null ise zincir biter.
+Her Offer event'inin kendi `processEvents` havuzu vardır. Gerçek kriz başladığında bu havuz aktif havuz olarak atanır. Offer'ın `processEvents`'i boşsa `database.processEvents` yedek olarak kullanılır.
 
-Her event seçeneği controlStat değişimi (`controlStatModifier`), şüphe (`suspicionModifier`), maliyet (`costModifier`) ve sonraki event havuzu (`nextEventPool`) içerebilir.
+Gerçek kriz sürecinde her 15 saniyede bir aktif havuzdan rastgele bir event seçilir. Aynı event bir süreçte iki kez tetiklenmez. Havuz sabit kalır — seçenek sonucuna göre değişmez.
+
+Her event seçeneği controlStat değişimi (`controlStatModifier`), şüphe (`suspicionModifier`) ve maliyet (`costModifier`) içerebilir.
 
 Sahte krizde ise eventler zincir halinde sıralı gösterilir — havuzdan rastgele seçim yapılmaz.
 

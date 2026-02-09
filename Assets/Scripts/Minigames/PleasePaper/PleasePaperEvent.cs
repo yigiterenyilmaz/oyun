@@ -12,7 +12,9 @@ public class PleasePaperEvent : ScriptableObject
     //--- Offer alanları (sadece eventType == Offer iken anlamlı) ---
     public int baseReward; //başarılı olursa taban kazanç
     public bool isFakeCrisis; //sahte kriz mi (tuzak)
+    [Range(0f, 1f)] public float realChanceOnRepeat = 0.3f; //tekrar geldiğinde gerçek olma şansı (sadece fake offer'lar için)
     public List<PleasePaperEvent> fakeCrisisEvents; //sahte kriz event zinciri (isFakeCrisis true ise)
+    public List<PleasePaperEvent> processEvents; //bu offer'a ait süreç event havuzu (gerçek kriz olarak çalıştığında kullanılır)
 
     //--- Karar süresi (Offer dışında, Inspector'dan ayarlanabilir) ---
     public float decisionTime = 10f; //oyuncunun karar vermesi için verilen süre (saniye)
@@ -37,5 +39,4 @@ public class PleasePaperEventChoice
     public float controlStatModifier; //controlStat değişimi (+ veya -)
     public float suspicionModifier; //şüphe değişimi
     public int costModifier; //ek maliyet/zarar
-    public List<PleasePaperEvent> nextEventPool; //sonraki event havuzu (boşsa zincir biter)
 }

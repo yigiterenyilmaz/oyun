@@ -44,6 +44,14 @@ public class PleasePaperManager : MonoBehaviour
     //sahte kriz event zinciri takibi
     private int fakeCrisisEventIndex; //sahte kriz zincirinde kaçıncı event
 
+    //offer tekrar sistemi
+    private HashSet<PleasePaperEvent> completedRealOffers = new HashSet<PleasePaperEvent>(); //kabul edilen gerçek offer'lar (kalıcı olarak havuzdan çıkar)
+    private HashSet<PleasePaperEvent> revealedFakeOffers = new HashSet<PleasePaperEvent>(); //sahte olduğu ortaya çıkan offer'lar (tekrar gelebilir, gerçek olabilir)
+    private PleasePaperEvent lastOffer; //son gösterilen offer (art arda tekrar engeli)
+    private bool currentOfferIsFake; //şu anki offer'ın runtime'da fake mi gerçek mi olduğu
+    private Dictionary<PleasePaperEvent, int> rejectionCounts = new Dictionary<PleasePaperEvent, int>(); //offer başına toplam ret sayısı
+    private const int maxRejectionsBeforeDrop = 2; //bu kadar reddedilince offer havuzdan düşer
+
     //hangi state'ten EventPhase'e geçildiğini takip eder (geri dönüş için)
     private PleasePaperState stateBeforeEvent;
 
@@ -119,7 +127,8 @@ public class PleasePaperManager : MonoBehaviour
         offerTimer += Time.deltaTime;
         if (offerTimer >= nextOfferTime)
         {
-            offerTimer = 0f;
+            //GenerateOffer başarılı olursa state değişir ve UpdateIdle artık çalışmaz
+            //başarısız olursa offerTimer sıfırlanmaz — sonraki frame tekrar dener
             GenerateOffer();
         }
     }
@@ -198,7 +207,9 @@ public class PleasePaperManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Havuzdan rastgele teklif eventi seçer, sunar.
+    /// Havuzdan teklif eventi seçer, sunar.
+    /// completedRealOffers havuzdan çıkarılır, lastOffer art arda tekrar engeli uygulanır.
+    /// revealedFakeOffers'daki offer tekrar geldiğinde gerçek olma şansı vardır.
     /// </summary>
     private void GenerateOffer()
     {
@@ -210,9 +221,39 @@ public class PleasePaperManager : MonoBehaviour
             return; //bu frame atla, bir sonraki interval'de tekrar dene
         }
 
+        //uygun offer'ları filtrele
+        List<PleasePaperEvent> available = new List<PleasePaperEvent>();
+        for (int i = 0; i < database.offerEvents.Count; i++)
+        {
+            PleasePaperEvent offer = database.offerEvents[i];
+            if (completedRealOffers.Contains(offer)) continue; //gerçek olarak tamamlandı, bir daha gelmez
+            if (rejectionCounts.ContainsKey(offer) && rejectionCounts[offer] >= maxRejectionsBeforeDrop) continue; //çok reddedildi, havuzdan düştü
+            available.Add(offer);
+        }
+
+        //art arda tekrar engeli — havuzda başka seçenek varsa lastOffer'ı çıkar
+        if (available.Count > 1)
+            available.Remove(lastOffer);
+
+        if (available.Count == 0) return;
+
         //rastgele teklif eventi seç
-        int idx = UnityEngine.Random.Range(0, database.offerEvents.Count);
-        currentOffer = database.offerEvents[idx];
+        int idx = UnityEngine.Random.Range(0, available.Count);
+        currentOffer = available[idx];
+
+        //bu offer runtime'da fake mi gerçek mi belirlenir
+        if (revealedFakeOffers.Contains(currentOffer))
+        {
+            //daha önce sahte olduğu ortaya çıkmış — realChanceOnRepeat'e göre gerçek olabilir
+            currentOfferIsFake = UnityEngine.Random.value >= currentOffer.realChanceOnRepeat;
+        }
+        else
+        {
+            //ilk kez geliyor — Inspector'daki isFakeCrisis değeri geçerli
+            currentOfferIsFake = currentOffer.isFakeCrisis;
+        }
+
+        lastOffer = currentOffer;
 
         //cooldown'u işaretle
         EventCoordinator.MarkEventShown();
@@ -224,18 +265,21 @@ public class PleasePaperManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyuncu teklifi kabul etti. Sahte kriz mi gerçek kriz mi kontrol edilir.
+    /// Oyuncu teklifi kabul etti. Runtime'da belirlenen currentOfferIsFake'e göre süreç başlar.
+    /// Gerçek offer kabul edildiğinde kalıcı olarak havuzdan çıkar.
     /// </summary>
     public void AcceptOffer()
     {
         if (currentState != PleasePaperState.OfferPending || currentOffer == null) return;
 
-        if (currentOffer.isFakeCrisis)
+        if (currentOfferIsFake)
         {
             StartFakeCrisisProcess();
         }
         else
         {
+            //gerçek offer kabul edildi — bir daha gelmeyecek
+            completedRealOffers.Add(currentOffer);
             StartActiveProcess();
         }
     }
@@ -246,6 +290,14 @@ public class PleasePaperManager : MonoBehaviour
     public void RejectOffer()
     {
         if (currentState != PleasePaperState.OfferPending) return;
+
+        //ret sayısını artır
+        if (currentOffer != null)
+        {
+            if (!rejectionCounts.ContainsKey(currentOffer))
+                rejectionCounts[currentOffer] = 0;
+            rejectionCounts[currentOffer]++;
+        }
 
         currentOffer = null;
         currentState = PleasePaperState.Idle;
@@ -303,9 +355,13 @@ public class PleasePaperManager : MonoBehaviour
 
     /// <summary>
     /// Sahte kriz tamamlandı. Oyuncu zararlı çıkar.
+    /// Offer revealedFakeOffers'a eklenir — tekrar geldiğinde gerçek olma şansı olur.
     /// </summary>
     private void CompleteFakeCrisis()
     {
+        //sahte olduğu ortaya çıktı — tekrar gelebilir, gerçek olabilir
+        revealedFakeOffers.Add(currentOffer);
+
         PleasePaperResult result = new PleasePaperResult();
         result.success = false;
         result.isFakeCrisis = true;
@@ -346,7 +402,11 @@ public class PleasePaperManager : MonoBehaviour
         accumulatedCostModifier = 0;
         triggeredEvents.Clear();
         currentEvent = null;
-        activeEventPool = database.processEvents; //başlangıç havuzu
+
+        //offer'ın kendi event havuzu varsa onu kullan, yoksa database'den al
+        activeEventPool = (currentOffer.processEvents != null && currentOffer.processEvents.Count > 0)
+            ? currentOffer.processEvents
+            : database.processEvents;
 
         OnProcessStarted?.Invoke(currentOffer, processDuration);
         OnControlStatChanged?.Invoke(controlStat);
@@ -409,11 +469,6 @@ public class PleasePaperManager : MonoBehaviour
         controlStat = Mathf.Clamp(controlStat + choice.controlStatModifier, 0f, 100f);
         OnControlStatChanged?.Invoke(controlStat);
 
-        //event havuzunu güncelle
-        activeEventPool = (choice.nextEventPool != null && choice.nextEventPool.Count > 0)
-            ? choice.nextEventPool
-            : null;
-
         OnPleasePaperEventResolved?.Invoke(choice);
 
         currentEvent = null;
@@ -469,7 +524,7 @@ public class PleasePaperManager : MonoBehaviour
         //sonucu hazırla ama hemen uygulama — oyuncu ekranı görsün
         pendingResult = new PleasePaperResult();
         pendingResult.success = true;
-        pendingResult.isFakeCrisis = false;
+        pendingResult.isFakeCrisis = currentOfferIsFake;
         pendingResult.offer = currentOffer;
         pendingResult.bargainingPower = bargainingPower;
         pendingResult.finalControlStat = controlStat;
@@ -499,7 +554,7 @@ public class PleasePaperManager : MonoBehaviour
         //sonucu hazırla ama hemen uygulama — oyuncu game over ekranını görsün
         pendingResult = new PleasePaperResult();
         pendingResult.success = false;
-        pendingResult.isFakeCrisis = false;
+        pendingResult.isFakeCrisis = currentOfferIsFake;
         pendingResult.offer = currentOffer;
         pendingResult.finalControlStat = controlStat;
         pendingResult.wealthChange = -accumulatedCostModifier;

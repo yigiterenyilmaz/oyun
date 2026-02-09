@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e994f2288153c844c8fd5c494f337f48, type: 3}
   m_Name: OfferEvent02
   m_EditorClassIdentifier: Assembly-CSharp::PleasePaperEvent
-  id: 
-  displayName: 
-  description: 
+  id: oev02
+  displayName: Auralon country may go bankrupt
+  description: "detayl\u0131 a\xE7\u0131klama"
   eventType: 0
   baseReward: 0
   isFakeCrisis: 0

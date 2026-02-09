@@ -62,12 +62,25 @@ public class PleasePaperEventEditor : Editor
         {
             EditorGUI.indentLevel++;
             EditorGUILayout.PropertyField(
+                serializedObject.FindProperty("realChanceOnRepeat"),
+                new GUIContent("Tekrar Gelince Gerçek Olma Şansı",
+                    "Sahte kriz ortaya çıktıktan sonra tekrar geldiğinde gerçek olma olasılığı (0 = hep fake, 1 = hep gerçek)")
+            );
+            EditorGUILayout.PropertyField(
                 serializedObject.FindProperty("fakeCrisisEvents"),
                 new GUIContent("Sahte Kriz Event Zinciri"),
                 true
             );
             EditorGUI.indentLevel--;
         }
+
+        EditorGUILayout.Space();
+        EditorGUILayout.PropertyField(
+            serializedObject.FindProperty("processEvents"),
+            new GUIContent("Süreç Event Havuzu",
+                "Bu offer gerçek kriz olarak çalıştığında kullanılacak event havuzu. Boşsa database.processEvents kullanılır."),
+            true
+        );
     }
 
     /// <summary>
@@ -107,13 +120,6 @@ public class PleasePaperEventEditor : Editor
                 EditorGUILayout.PropertyField(choice.FindPropertyRelative("controlStatModifier"));
                 EditorGUILayout.PropertyField(choice.FindPropertyRelative("suspicionModifier"));
                 EditorGUILayout.PropertyField(choice.FindPropertyRelative("costModifier"));
-
-                EditorGUILayout.Space(5);
-                EditorGUILayout.PropertyField(
-                    choice.FindPropertyRelative("nextEventPool"),
-                    new GUIContent("Sonraki Event Havuzu"),
-                    true
-                );
 
                 EditorGUI.indentLevel--;
             }
