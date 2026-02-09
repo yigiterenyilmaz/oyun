@@ -183,10 +183,14 @@ public class PleasePaperManager : MonoBehaviour
         eventDecisionTimer -= Time.deltaTime;
         OnEventDecisionTimerUpdate?.Invoke(eventDecisionTimer);
 
-        //süre doldu — ilk seçeneği otomatik seç
+        //süre doldu — default seçeneği otomatik seç
         if (eventDecisionTimer <= 0f)
         {
-            ResolveEvent(0);
+            int defaultIdx = (currentEvent.defaultChoiceIndex >= 0 &&
+                              currentEvent.defaultChoiceIndex < currentEvent.choices.Count)
+                ? currentEvent.defaultChoiceIndex
+                : 0; //geçersizse ilk seçenek
+            ResolveEvent(defaultIdx);
         }
     }
 
@@ -197,20 +201,18 @@ public class PleasePaperManager : MonoBehaviour
     {
         if (database.offerEvents == null || database.offerEvents.Count == 0) return;
 
-        //EventCoordinator slot kontrolü — başka bir event aktifse teklif ertelenir
-        if (EventCoordinator.IsEventSlotOccupied())
+        //EventCoordinator cooldown kontrolü — başka bir event az önce geldiyse ertele
+        if (!EventCoordinator.CanShowEvent())
         {
-            //bu cycle'ı atla, bir sonraki interval'de tekrar dene
-            nextOfferTime = UnityEngine.Random.Range(minOfferInterval, maxOfferInterval);
-            return;
+            return; //bu frame atla, bir sonraki interval'de tekrar dene
         }
 
         //rastgele teklif eventi seç
         int idx = UnityEngine.Random.Range(0, database.offerEvents.Count);
         currentOffer = database.offerEvents[idx];
 
-        //slot'u al
-        EventCoordinator.TryAcquireEventSlot("PleasePaper");
+        //cooldown'u işaretle
+        EventCoordinator.MarkEventShown();
 
         currentState = PleasePaperState.OfferPending;
         offerDecisionTimer = offerDecisionTime;
@@ -242,8 +244,7 @@ public class PleasePaperManager : MonoBehaviour
     {
         if (currentState != PleasePaperState.OfferPending) return;
 
-        //slot'u bırak
-        EventCoordinator.ReleaseEventSlot("PleasePaper");
+
 
         currentOffer = null;
         currentState = PleasePaperState.Idle;
@@ -315,8 +316,7 @@ public class PleasePaperManager : MonoBehaviour
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
 
-        //slot'u bırak
-        EventCoordinator.ReleaseEventSlot("PleasePaper");
+
 
         //durumu sıfırla
         ResetState();
@@ -481,8 +481,7 @@ public class PleasePaperManager : MonoBehaviour
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
 
-        //slot'u bırak
-        EventCoordinator.ReleaseEventSlot("PleasePaper");
+
 
         //durumu sıfırla
         ResetState();
@@ -523,8 +522,7 @@ public class PleasePaperManager : MonoBehaviour
         if (MinigameManager.Instance != null)
             MinigameManager.Instance.StartCooldown(minigameData);
 
-        //slot'u bırak
-        EventCoordinator.ReleaseEventSlot("PleasePaper");
+
 
         //durumu sıfırla
         ResetState();

@@ -87,9 +87,9 @@ OfferPending — oyuncuya teklif event'inin bilgisi sunulur (15s)
     │               ▼
     │          Süre doldu → CalculateResult()
     │               │
-    │               ├── controlStat < 50 → FailProcess() → endgameEvents[1] tetiklenir
+    │               ├── controlStat < 50 → FailProcess()
     │               │
-    │               └── controlStat >= 50 → StartBargaining() → endgameEvents[0] tetiklenir
+    │               └── controlStat >= 50 → StartBargaining()
     │
     └── Süre doldu → otomatik ret
 ```
@@ -105,12 +105,43 @@ Tüm eventler tek `PleasePaperEvent` sınıfından oluşturulur. `eventType` ala
 | Teklif eventleri | Offer | Ülke bilgisi, baseReward, isFakeCrisis taşır. Database'de `offerEvents` listesinde |
 | Sahte kriz eventleri | FakeCrisis | Choices ile zarar verir. Offer event'inin `fakeCrisisEvents` listesinde |
 | Süreç eventleri | Process | Choices ile controlStat etkiler. Database'de `processEvents` listesinde |
-| Sonuç eventleri | Endgame | Pazarlık veya game over bildirimi. Database'de `endgameEvents` listesinde (2 adet) |
 
 Inspector'da `eventType` seçilince:
 - **Offer** → baseReward, isFakeCrisis, fakeCrisisEvents alanları görünür
-- **FakeCrisis / Process** → choices listesi görünür
-- **Endgame** → ekstra alan yok, sadece displayName ve description
+- **FakeCrisis / Process** → choices listesi, karar süresi, default seçenek görünür
+
+---
+
+## Asset Oluşturma Rehberi
+
+Tüm asset'ler `Assets/GameData/Minigames/PleasePaper/` klasöründe oluşturulur.
+Sağ tık → Create → Minigames → PleasePaper → Event veya Database.
+
+### Yapı
+
+```
+PleasePaperDatabase
+  ├─ offerEvents (Offer tipinde event'ler)
+  │    ├─ Venezuela Krizi (isFakeCrisis = false) → gerçek kriz
+  │    └─ Kıbrıs Tuzağı (isFakeCrisis = true)
+  │         └─ fakeCrisisEvents: [Adım1, Adım2, Adım3]  ← FakeCrisis tipinde event'ler
+  │
+  └─ processEvents (Process tipinde event'ler)
+       ├─ İşçi Grevi
+       ├─ Medya Sızıntısı
+       └─ Nakliye Pususu
+```
+
+### Oluşturma Sırası
+
+1. **Process event'leri** oluştur (eventType = Process, seçenekler + modifier'lar doldur)
+2. **FakeCrisis event'leri** oluştur (eventType = FakeCrisis, zincirin her adımı ayrı asset)
+3. **Offer event'leri** oluştur (eventType = Offer):
+   - Gerçek kriz: isFakeCrisis = false, baseReward doldur
+   - Sahte kriz: isFakeCrisis = true, fakeCrisisEvents listesine FakeCrisis event'lerini sırayla sürükle
+4. **Database** oluştur → offerEvents ve processEvents listelerine ilgili event'leri sürükle
+
+FakeCrisis event'leri database'e eklenmez — sahte Offer event'inin içindeki `fakeCrisisEvents` listesine bağlanır.
 
 ---
 
@@ -141,7 +172,7 @@ Süreç başarılı bittiğinde oyuncunun ne kadar kazanacağı controlStat'a g�
 | 75 | 0.5 | %75 |
 | 100 | 1.0 | %100 |
 
-controlStat tam sınırda (50) olsa bile oyuncu başarılı sayılır ama kazancı minimum düzeydedir. Başarı veya başarısızlık durumunda ilgili endgame event'i tetiklenir.
+controlStat tam sınırda (50) olsa bile oyuncu başarılı sayılır ama kazancı minimum düzeydedir. Başarı veya başarısızlık durumunda `OnProcessCompleted` event'i tetiklenir.
 
 ---
 
@@ -201,8 +232,8 @@ Sahte krizde ise eventler zincir halinde sıralı gösterilir — havuzdan rastg
 | `OnPleasePaperEventTriggered` | Event tetiklendi |
 | `OnEventDecisionTimerUpdate` | Event karar sayacı güncellendi |
 | `OnPleasePaperEventResolved` | Oyuncu event seçimi yaptı |
-| `OnBargainingStarted` | Pazarlık başladı (endgame event + bargainingPower) |
-| `OnGameOverTriggered` | Game over endgame event'i tetiklendi |
+| `OnBargainingStarted` | Pazarlık başladı (bargainingPower) |
+| `OnGameOver` | Süreç başarısız bitti (sebep mesajı) |
 | `OnProcessCompleted` | Süreç bitti (başarı, başarısızlık veya sahte kriz) |
 | `OnPleasePaperFailed` | Minigame başlatılamadı |
 

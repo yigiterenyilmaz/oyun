@@ -29,12 +29,16 @@ public class PleasePaperEventEditor : Editor
             case PleasePaperEventType.FakeCrisis:
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("decisionTime"),
                     new GUIContent("Karar Süresi (s)"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultChoiceIndex"),
+                    new GUIContent("Süre Dolunca Seçilecek", "Süre dolunca otomatik seçilecek seçenek indexi (0'dan başlar, -1 = ilk seçenek)"));
                 EditorGUILayout.Space();
                 DrawChoices();
                 break;
             case PleasePaperEventType.Process:
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("decisionTime"),
                     new GUIContent("Karar Süresi (s)"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("defaultChoiceIndex"),
+                    new GUIContent("Süre Dolunca Seçilecek", "Süre dolunca otomatik seçilecek seçenek indexi (0'dan başlar, -1 = ilk seçenek)"));
                 EditorGUILayout.Space();
                 DrawChoices();
                 break;

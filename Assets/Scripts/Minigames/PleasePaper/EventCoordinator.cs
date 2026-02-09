@@ -1,43 +1,38 @@
+using UnityEngine;
+
 /// <summary>
 /// Farklı event sistemlerinin (RandomEvent, PleasePaper, Smuggle vb.) aynı anda
-/// event göstermesini engelleyen paylaşımlı slot yöneticisi.
+/// event göstermesini engelleyen cooldown sistemi.
+/// Tam kilitleme yapmaz — sadece iki event arasında minimum süre bırakır.
 /// </summary>
 public static class EventCoordinator
 {
-    private static string currentOwner = null;
+    private static float lastEventTime = -999f;
+    private static float cooldownDuration = 2f; //iki event arası minimum süre (saniye)
 
     /// <summary>
-    /// Event slot'unu almaya çalışır. Slot boşsa alır ve true döner.
-    /// Zaten aynı owner tarafından alınmışsa da true döner.
+    /// Event gösterilebilir mi kontrol eder.
+    /// Son event'ten bu yana yeterli süre geçtiyse true döner.
     /// </summary>
-    public static bool TryAcquireEventSlot(string owner)
+    public static bool CanShowEvent()
     {
-        if (currentOwner == null)
-        {
-            currentOwner = owner;
-            return true;
-        }
-
-        //aynı owner zaten slot'u tutuyorsa tekrar izin ver
-        return currentOwner == owner;
+        return Time.time - lastEventTime >= cooldownDuration;
     }
 
     /// <summary>
-    /// Event slot'unu serbest bırakır. Sadece mevcut owner bırakabilir.
+    /// Event gösterildi olarak işaretle. Cooldown sayacını sıfırlar.
+    /// Her event popup'ı gösterildiğinde çağrılmalı.
     /// </summary>
-    public static void ReleaseEventSlot(string owner)
+    public static void MarkEventShown()
     {
-        if (currentOwner == owner)
-        {
-            currentOwner = null;
-        }
+        lastEventTime = Time.time;
     }
 
     /// <summary>
-    /// Event slot'u şu an dolu mu kontrol eder.
+    /// Cooldown süresini değiştirir (varsayılan 2 saniye).
     /// </summary>
-    public static bool IsEventSlotOccupied()
+    public static void SetCooldownDuration(float duration)
     {
-        return currentOwner != null;
+        cooldownDuration = Mathf.Max(0f, duration);
     }
 }

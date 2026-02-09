@@ -19,6 +19,7 @@ public class PleasePaperEvent : ScriptableObject
 
     //--- Seçenekler (Offer dışında tüm tipler için) ---
     public List<PleasePaperEventChoice> choices; //oyuncunun seçebileceği seçenekler
+    public int defaultChoiceIndex = -1; //süre dolunca otomatik seçilecek seçenek (-1 = hiçbiri, ceza/rastgele)
 }
 
 public enum PleasePaperEventType

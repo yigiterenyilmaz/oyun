@@ -131,17 +131,14 @@ public class RandomEventManager : MonoBehaviour
 
     public void TriggerRandomEvent() //random event tetikler
     {
-        //başka bir sistem (PleasePaper vb.) event gösteriyorsa bu cycle'ı atla
-        if (!EventCoordinator.TryAcquireEventSlot("RandomEvent"))
+        //başka bir sistem az önce event gösterdiyse bu cycle'ı atla (en az 2s aralık)
+        if (!EventCoordinator.CanShowEvent())
             return;
 
         Event evt = GetRandomEvent();
-        if (evt == null)
-        {
-            EventCoordinator.ReleaseEventSlot("RandomEvent");
-            return;
-        }
+        if (evt == null) return;
 
+        EventCoordinator.MarkEventShown();
         triggeredEvents.Add(evt);
         OnEventTriggered?.Invoke(evt);
     }
@@ -177,8 +174,7 @@ public class RandomEventManager : MonoBehaviour
             );
         }
 
-        //event slot'unu bırak — oyuncu seçimini yaptı, başka sistemler event gösterebilir
-        EventCoordinator.ReleaseEventSlot("RandomEvent");
+        //artık slot sistemi yok — cooldown otomatik işliyor
     }
 
     public void SetGamePhase(int phase)
