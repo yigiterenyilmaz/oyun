@@ -71,13 +71,16 @@ public class UImanager : MonoBehaviour
 
     public void OnSkillTreeClose()
     {
-        pausePanel.SetActive(false);
-        skillTreePanel.SetActive(false);
-        pauseButton.SetActive(true);
-        skillTreeButton.SetActive(true);
-        moneyBar.SetActive(true);
-        mainCamera.enable = true;
-        currentui = 0;
+        if (enable)
+        {
+            pausePanel.SetActive(false);
+            skillTreePanel.SetActive(false);
+            pauseButton.SetActive(true);
+            skillTreeButton.SetActive(true);
+            moneyBar.SetActive(true);
+            mainCamera.enable = true;
+            currentui = 0;
+        }
 
     }
     
@@ -96,6 +99,7 @@ public class UImanager : MonoBehaviour
             if(currentui==0)OnGameResumePress();
             if(currentui==1)OnSkillTreeOpen();
             if(currentui==2)OnEnterPausePress();
+            enable = true;
         }
     }
 }
