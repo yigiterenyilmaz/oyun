@@ -62,6 +62,19 @@ public class SmuggleSelectionUI : MonoBehaviour
             cancelButton.onClick.AddListener(OnCancelClicked);
         }
 
+        // Check layout components on containers
+        if (routesContainer != null)
+        {
+            var layoutGroup = routesContainer.GetComponent<LayoutGroup>();
+            Debug.Log($"routesContainer has LayoutGroup: {layoutGroup != null} (Type: {layoutGroup?.GetType().Name ?? "none"})");
+        }
+        
+        if (couriersContainer != null)
+        {
+            var layoutGroup = couriersContainer.GetComponent<LayoutGroup>();
+            Debug.Log($"couriersContainer has LayoutGroup: {layoutGroup != null} (Type: {layoutGroup?.GetType().Name ?? "none"})");
+        }
+
         // Subscribe to SmuggleManager events
         SmuggleManager.OnSelectionPhaseStarted += OnSelectionPhaseStarted;
 
@@ -77,6 +90,7 @@ public class SmuggleSelectionUI : MonoBehaviour
 
     private void OnSelectionPhaseStarted(SmuggleRoutePack routePack, List<SmuggleCourier> couriers)
     {
+        UImanager.Instance.ToggleUI();
         currentRoutePack = routePack;
         currentCouriers = couriers;
         selectedRoute = null;
@@ -88,7 +102,6 @@ public class SmuggleSelectionUI : MonoBehaviour
         // Create route cards
         if (routePack != null && routePack.routes != null)
         {
-            Debug.Log($"SmuggleUI: {routePack.routes.Count} rota kartı oluşturuluyor (routePack: {routePack.name})");
             foreach (SmuggleRoute route in routePack.routes)
             {
                 CreateRouteCard(route);
@@ -98,7 +111,6 @@ public class SmuggleSelectionUI : MonoBehaviour
         // Create courier cards
         if (couriers != null)
         {
-            Debug.Log($"SmuggleUI: {couriers.Count} kurye kartı oluşturuluyor");
             foreach (SmuggleCourier courier in couriers)
             {
                 CreateCourierCard(courier);
@@ -121,8 +133,8 @@ public class SmuggleSelectionUI : MonoBehaviour
         if (routeCardPrefab == null || routesContainer == null) return;
 
         GameObject cardObj = Instantiate(routeCardPrefab, routesContainer);
+        Debug.Log($"ROUTE CARD: Created {cardObj.name}, parent: {routesContainer.name}, sibling index: {cardObj.transform.GetSiblingIndex()}");
 
-        //prefab'da script yoksa runtime'da ekle
         RouteCardUI card = cardObj.GetComponent<RouteCardUI>();
         if (card == null)
         {
@@ -132,44 +144,56 @@ public class SmuggleSelectionUI : MonoBehaviour
         card.Initialize(route);
         routeCards.Add(card);
 
-        //Button bileşeni yoksa ekle
         Button btn = cardObj.GetComponent<Button>();
         if (btn == null)
             btn = cardObj.AddComponent<Button>();
 
-        //tıklama için raycast hedefi lazım
         EnsureButtonHasTargetGraphic(btn, cardObj);
 
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(() => card.OnCardClicked());
+        
+        Debug.Log($"ROUTE CARD: Position: {cardObj.GetComponent<RectTransform>().anchoredPosition}");
     }
 
     private void CreateCourierCard(SmuggleCourier courier)
     {
         if (courierCardPrefab == null || couriersContainer == null) return;
 
-        GameObject cardObj = Instantiate(courierCardPrefab, couriersContainer);
-
-        //prefab'da script yoksa runtime'da ekle
-        CourierCardUI card = cardObj.GetComponent<CourierCardUI>();
-        if (card == null)
+        try
         {
-            card = cardObj.AddComponent<CourierCardUI>();
+            GameObject cardObj = Instantiate(courierCardPrefab, couriersContainer);
+            Debug.Log($"COURIER CARD: Created {cardObj.name}, parent: {couriersContainer.name}, sibling index: {cardObj.transform.GetSiblingIndex()}");
+
+            CourierCardUI card = cardObj.GetComponent<CourierCardUI>();
+            if (card == null)
+            {
+                Debug.Log("COURIER CARD: Adding CourierCardUI component");
+                card = cardObj.AddComponent<CourierCardUI>();
+            }
+
+            Debug.Log($"COURIER CARD: Calling Initialize for {courier.name}");
+            card.Initialize(courier);
+            Debug.Log("COURIER CARD: Initialize complete");
+            
+            courierCards.Add(card);
+
+            Button btn = cardObj.GetComponent<Button>();
+            if (btn == null)
+                btn = cardObj.AddComponent<Button>();
+
+            EnsureButtonHasTargetGraphic(btn, cardObj);
+
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => card.OnCardClicked());
+            
+            Debug.Log($"COURIER CARD: Position: {cardObj.GetComponent<RectTransform>().anchoredPosition}");
+            Debug.Log($"COURIER CARD: ✓ Completed successfully for {courier.name}");
         }
-
-        card.Initialize(courier);
-        courierCards.Add(card);
-
-        //Button bileşeni yoksa ekle
-        Button btn = cardObj.GetComponent<Button>();
-        if (btn == null)
-            btn = cardObj.AddComponent<Button>();
-
-        //tıklama için raycast hedefi lazım
-        EnsureButtonHasTargetGraphic(btn, cardObj);
-
-        btn.onClick.RemoveAllListeners();
-        btn.onClick.AddListener(() => card.OnCardClicked());
+        catch (System.Exception e)
+        {
+            Debug.LogError($"COURIER CARD ERROR: {e.Message}\n{e.StackTrace}");
+        }
     }
 
     public void SelectRoute(SmuggleRoute route)
@@ -234,6 +258,7 @@ public class SmuggleSelectionUI : MonoBehaviour
         // Hide panel
         if (selectionPanel != null)
             selectionPanel.SetActive(false);
+        UImanager.Instance.ToggleUI();
     }
 
     private void OnCancelClicked()
@@ -245,6 +270,7 @@ public class SmuggleSelectionUI : MonoBehaviour
 
         if (selectionPanel != null)
             selectionPanel.SetActive(false);
+        UImanager.Instance.ToggleUI();
     }
 
     private void ClearCards()

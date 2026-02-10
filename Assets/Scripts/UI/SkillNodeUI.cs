@@ -25,7 +25,6 @@ public class SkillNodeUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHan
         if (isUnlocked && linkedMinigame != null)
         {
             MinigameManager.Instance?.UnlockMinigame(linkedMinigame);
-            Debug.Log($"Unlocked minigame: {linkedMinigame.name}");
         }
     }
 

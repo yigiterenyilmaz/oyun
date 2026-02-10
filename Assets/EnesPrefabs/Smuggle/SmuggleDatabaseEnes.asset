@@ -16,5 +16,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f25bf4b62c29d1444a5ae1e80dd22f76, type: 2}
   couriers:
   - {fileID: 11400000, guid: 4a001eb886187e049aa31e435067f439, type: 2}
+  - {fileID: 11400000, guid: d64ef76423cb9514bb399534e551e683, type: 2}
+  - {fileID: 11400000, guid: 0aa9446f5e95e6f46b311b99c06ccbb1, type: 2}
   events:
   - {fileID: 11400000, guid: e2c8830e2c3c93843afb73390a0d258c, type: 2}
