@@ -1,16 +1,16 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
 public class PassiveIncomeEffect : SkillEffect
 {
-    public float minIncomePerTick = 5f; //her tick'te kazanılacak minimum para
-    public float maxIncomePerTick = 15f; //her tick'te kazanılacak maximum para
+    public List<PassiveIncomeProduct> products; //bu skill açılınca satın alınabilir hale gelen ürünler
 
     public override void Apply()
     {
-        if (SkillTreeManager.Instance != null)
+        if (SkillTreeManager.Instance != null && products != null)
         {
-            SkillTreeManager.Instance.RegisterPassiveIncome(minIncomePerTick, maxIncomePerTick);
+            SkillTreeManager.Instance.UnlockProducts(products);
         }
     }
 }
