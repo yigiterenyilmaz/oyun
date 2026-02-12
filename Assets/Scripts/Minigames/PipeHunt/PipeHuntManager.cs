@@ -13,18 +13,20 @@ public class PipeHuntManager : MonoBehaviour
     //state
     private PipeHuntState currentState = PipeHuntState.Idle;
     private List<PipeInstance> pipes = new List<PipeInstance>();
-    private int pickaxeRemainingDurability;
+    private HuntTool currentTool;
+    private int toolRemainingDurability;
+    private float gameDuration;
     private float gameTimer;
     private float accumulatedIncome;
 
     //events — UI dinleyecek
-    public static event Action<List<PipeInstance>, float> OnGameStarted; //borular, süre
+    public static event Action<List<PipeInstance>, float, HuntTool> OnGameStarted; //borular, süre, seçilen alet
     public static event Action<float> OnTimerUpdate; //kalan süre
     public static event Action<PipeInstance, int> OnPipeHit; //vurulan boru, kalan boru dayanıklılığı
     public static event Action<PipeInstance> OnPipeBurst; //patlayan boru
-    public static event Action<int> OnEmptyHit; //boş zemine vuruldu, kalan kazma dayanıklılığı
-    public static event Action<int> OnPickaxeDamaged; //kazma hasar aldı, kalan dayanıklılık
-    public static event Action OnPickaxeBroken; //kazma kırıldı
+    public static event Action<int> OnEmptyHit; //boş zemine vuruldu, kalan alet dayanıklılığı
+    public static event Action<int> OnToolDamaged; //alet hasar aldı, kalan dayanıklılık
+    public static event Action OnToolBroken; //alet kırıldı
     public static event Action<float> OnIncomeUpdate; //toplam biriken gelir
     public static event Action<PipeHuntResult> OnGameFinished; //minigame bitti
 
@@ -60,11 +62,12 @@ public class PipeHuntManager : MonoBehaviour
     // ==================== UI'IN ÇAĞIRDIĞI METODLAR ====================
 
     /// <summary>
-    /// Minigame'i başlatır. Boruları yerleştirir, timer'ı başlatır.
+    /// Minigame'i seçilen aletle başlatır. Alet maliyeti ödenir, süre stealth'e göre hesaplanır.
     /// </summary>
-    public void StartGame()
+    public void StartGame(HuntTool tool)
     {
         if (currentState != PipeHuntState.Idle) return;
+        if (tool == null) return;
 
         //minigame açık mı ve cooldown'da mı kontrol et
         if (MinigameManager.Instance != null)
@@ -73,12 +76,23 @@ public class PipeHuntManager : MonoBehaviour
             if (MinigameManager.Instance.IsOnCooldown(minigameData)) return;
         }
 
+        //alet maliyetini öde
+        if (GameStatManager.Instance != null)
+        {
+            if (!GameStatManager.Instance.HasEnoughWealth(tool.cost)) return;
+            GameStatManager.Instance.TrySpendWealth(tool.cost);
+        }
+
+        //seçilen aleti kaydet
+        currentTool = tool;
+
         //boruları yerleştir
         GeneratePipes();
 
-        //kazma ve timer
-        pickaxeRemainingDurability = database.pickaxeDurability;
-        gameTimer = database.gameDuration;
+        //alet dayanıklılığı ve süre hesabı
+        toolRemainingDurability = tool.durability;
+        gameDuration = Mathf.Lerp(database.minGameDuration, database.maxGameDuration, tool.stealth);
+        gameTimer = gameDuration;
         accumulatedIncome = 0f;
 
         currentState = PipeHuntState.Active;
@@ -87,7 +101,7 @@ public class PipeHuntManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.PauseGame();
 
-        OnGameStarted?.Invoke(pipes, database.gameDuration);
+        OnGameStarted?.Invoke(pipes, gameDuration, currentTool);
     }
 
     /// <summary>
@@ -100,12 +114,12 @@ public class PipeHuntManager : MonoBehaviour
         PipeInstance pipe = GetPipeById(pipeId);
         if (pipe == null || pipe.isBurst) return;
 
-        //boruya hasar ver
-        pipe.remainingDurability -= database.damagePerHit;
+        //boruya hasar ver (aletin vuruş hasarı kadar)
+        pipe.remainingDurability -= currentTool.damagePerHit;
 
-        //kazmaya hasar ver
-        pickaxeRemainingDurability -= database.damagePerHit;
-        OnPickaxeDamaged?.Invoke(pickaxeRemainingDurability);
+        //alete hasar ver (her vuruş 1 dayanıklılık düşürür)
+        toolRemainingDurability--;
+        OnToolDamaged?.Invoke(toolRemainingDurability);
 
         if (pipe.remainingDurability <= 0)
         {
@@ -120,34 +134,53 @@ public class PipeHuntManager : MonoBehaviour
             OnPipeHit?.Invoke(pipe, pipe.remainingDurability);
         }
 
-        //kazma kırıldı mı
-        if (pickaxeRemainingDurability <= 0)
+        //alet kırıldı mı
+        if (toolRemainingDurability <= 0)
         {
-            pickaxeRemainingDurability = 0;
-            OnPickaxeBroken?.Invoke();
-            FinishGame(PipeHuntEndReason.PickaxeBroken);
+            toolRemainingDurability = 0;
+            OnToolBroken?.Invoke();
+            FinishGame(PipeHuntEndReason.ToolBroken);
         }
     }
 
     /// <summary>
-    /// Oyuncu boş zemine vurdu. Kazma aşınır ama boru hasar almaz.
+    /// Oyuncu boş zemine vurdu. Alet aşınır ama boru hasar almaz.
     /// </summary>
     public void HitEmpty()
     {
         if (currentState != PipeHuntState.Active) return;
 
-        //kazmaya hasar ver
-        pickaxeRemainingDurability -= database.damagePerHit;
-        OnPickaxeDamaged?.Invoke(pickaxeRemainingDurability);
-        OnEmptyHit?.Invoke(pickaxeRemainingDurability);
+        //alete hasar ver (her vuruş 1 dayanıklılık düşürür)
+        toolRemainingDurability--;
+        OnToolDamaged?.Invoke(toolRemainingDurability);
+        OnEmptyHit?.Invoke(toolRemainingDurability);
 
-        //kazma kırıldı mı
-        if (pickaxeRemainingDurability <= 0)
+        //alet kırıldı mı
+        if (toolRemainingDurability <= 0)
         {
-            pickaxeRemainingDurability = 0;
-            OnPickaxeBroken?.Invoke();
-            FinishGame(PipeHuntEndReason.PickaxeBroken);
+            toolRemainingDurability = 0;
+            OnToolBroken?.Invoke();
+            FinishGame(PipeHuntEndReason.ToolBroken);
         }
+    }
+
+    // ==================== UI İÇİN GETTER'LAR ====================
+
+    /// <summary>
+    /// Oyuncunun seçebileceği aletlerin listesini döner. UI alet seçim ekranında kullanır.
+    /// </summary>
+    public List<HuntTool> GetAvailableTools()
+    {
+        return database.tools;
+    }
+
+    /// <summary>
+    /// Belirli bir alet için hesaplanan oyun süresini döner. UI'da alet bilgisi gösterirken kullanılır.
+    /// </summary>
+    public float GetToolDuration(HuntTool tool)
+    {
+        if (tool == null) return 0f;
+        return Mathf.Lerp(database.minGameDuration, database.maxGameDuration, tool.stealth);
     }
 
     // ==================== İÇ MANTIK ====================
@@ -235,7 +268,7 @@ public class PipeHuntManager : MonoBehaviour
     {
         currentState = PipeHuntState.Finished;
 
-        //son geliri hesapla (bu frame'deki kalan)
+        //patlayan boru sayısı
         int burstCount = 0;
         for (int i = 0; i < pipes.Count; i++)
         {
@@ -257,6 +290,8 @@ public class PipeHuntManager : MonoBehaviour
         result.totalPipeCount = pipes.Count;
         result.endReason = reason;
         result.remainingTime = gameTimer;
+        result.toolUsed = currentTool;
+        result.toolCostPaid = currentTool != null ? currentTool.cost : 0;
 
         OnGameFinished?.Invoke(result);
 
@@ -266,6 +301,7 @@ public class PipeHuntManager : MonoBehaviour
 
         //state'i sıfırla
         currentState = PipeHuntState.Idle;
+        currentTool = null;
         pipes.Clear();
     }
 
@@ -290,9 +326,9 @@ public class PipeHuntManager : MonoBehaviour
         return pipes;
     }
 
-    public int GetPickaxeRemainingDurability()
+    public int GetToolRemainingDurability()
     {
-        return pickaxeRemainingDurability;
+        return toolRemainingDurability;
     }
 
     public float GetAccumulatedIncome()
@@ -303,6 +339,11 @@ public class PipeHuntManager : MonoBehaviour
     public float GetRemainingTime()
     {
         return gameTimer;
+    }
+
+    public HuntTool GetCurrentTool()
+    {
+        return currentTool;
     }
 }
 
@@ -315,8 +356,8 @@ public enum PipeHuntState
 
 public enum PipeHuntEndReason
 {
-    TimeUp,         //süre doldu
-    PickaxeBroken   //kazma kırıldı
+    TimeUp,       //süre doldu
+    ToolBroken    //alet kırıldı
 }
 
 [System.Serializable]
@@ -326,5 +367,7 @@ public class PipeHuntResult
     public int burstPipeCount;      //patlayan boru sayısı
     public int totalPipeCount;      //toplam boru sayısı
     public PipeHuntEndReason endReason; //bitiş sebebi
-    public float remainingTime;     //kalan süre (kazma kırıldıysa > 0)
+    public float remainingTime;     //kalan süre (alet kırıldıysa > 0)
+    public HuntTool toolUsed;       //kullanılan alet
+    public int toolCostPaid;        //ödenen alet maliyeti
 }
