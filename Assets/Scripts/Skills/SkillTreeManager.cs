@@ -16,11 +16,24 @@ public class SkillTreeManager : MonoBehaviour
     private float passiveIncomeTimer = 0f;
     private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
-    //events — skill
+    //training — eğitim sistemi
+    private bool trainingUnlocked = false;
+    private float trainingLevel = 0f;
+    private float totalInvested = 0f;
+    private float trainingCoefficient = 0f;
+    private float trainingBaseSweetSpot = 0f;
+    private float trainingSweetSpotGrowthRate = 0f;
+    private float trainingUnlockTime = 0f; //eğitimin açıldığı an (Time.time)
+
+    //events — passive income
     public static event Action<List<PassiveIncomeProduct>> OnProductsUnlocked; //yeni ürünler satın alınabilir
     public static event Action<PassiveIncomeProduct, int> OnProductBought; //ürün, yeni toplam adet
     public static event Action<PassiveIncomeProduct, int> OnProductSold; //ürün, yeni toplam adet
     public static event Action<float> OnPassiveIncomeTick; //bu tick'te kazanılan toplam gelir
+
+    //events — training
+    public static event Action OnTrainingUnlocked; //eğitim alanı açıldı
+    public static event Action<float> OnTrainingLevelChanged; //yeni seviye
 
     private void Awake()
     {
@@ -92,6 +105,13 @@ public class SkillTreeManager : MonoBehaviour
                 if (!IsUnlocked(prerequisite.id))
                     return false;
             }
+        }
+
+        //eğitim seviyesi gereksinimi kontrolü
+        if (skill.requiredTrainingLevel > 0f)
+        {
+            if (trainingLevel < skill.requiredTrainingLevel)
+                return false;
         }
 
         return true;
@@ -236,6 +256,97 @@ public class SkillTreeManager : MonoBehaviour
     public Dictionary<PassiveIncomeProduct, int> GetOwnedProducts()
     {
         return ownedProducts;
+    }
+
+    // ==================== EĞİTİM SİSTEMİ ====================
+
+    /// <summary>
+    /// UnlockTrainingEffect tarafından çağrılır. Eğitim alanını açar ve eğri parametrelerini ayarlar.
+    /// </summary>
+    public void UnlockTraining(float coefficient, float baseSweetSpot, float sweetSpotGrowthRate)
+    {
+        if (trainingUnlocked) return;
+
+        trainingCoefficient = coefficient;
+        trainingBaseSweetSpot = baseSweetSpot;
+        trainingSweetSpotGrowthRate = sweetSpotGrowthRate;
+        trainingLevel = 0f;
+        totalInvested = 0f;
+        trainingUnlockTime = Time.time;
+        trainingUnlocked = true;
+
+        OnTrainingUnlocked?.Invoke();
+    }
+
+    /// <summary>
+    /// UI bu metodu çağırır. Belirtilen miktar kadar wealth yatırır.
+    /// Verimlilik çan eğrisiyle hesaplanır: ideal noktaya yakın yatırımlar en verimli.
+    /// İdeal nokta zamanla büyür — oyuncuyu zaman içinde yatırım yapmaya teşvik eder.
+    /// </summary>
+    public bool InvestInTraining(float amount)
+    {
+        if (!trainingUnlocked) return false;
+        if (amount <= 0f) return false;
+        if (GameStatManager.Instance == null) return false;
+        if (!GameStatManager.Instance.HasEnoughWealth(amount)) return false;
+
+        //ideal noktayı hesapla (zamanla büyür)
+        float elapsed = Time.time - trainingUnlockTime;
+        float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
+
+        //çan eğrisi: x * e^(1-x) — x=1'de zirve, altında ve üstünde düşer
+        float newTotal = totalInvested + amount;
+        float x = newTotal / sweetSpot;
+        float efficiency = x * Mathf.Exp(1f - x);
+
+        //puan hesapla ve uygula
+        float points = amount * trainingCoefficient * efficiency;
+
+        GameStatManager.Instance.TrySpendWealth(amount);
+        totalInvested = newTotal;
+        trainingLevel += points;
+
+        OnTrainingLevelChanged?.Invoke(trainingLevel);
+        return true;
+    }
+
+    /// <summary>
+    /// Belirli bir miktar yatırılsa ne kadar puan kazanılacağını hesaplar (UI önizleme için).
+    /// </summary>
+    public float PreviewTrainingInvestment(float amount)
+    {
+        if (!trainingUnlocked || amount <= 0f) return 0f;
+
+        float elapsed = Time.time - trainingUnlockTime;
+        float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
+        float x = (totalInvested + amount) / sweetSpot;
+        float efficiency = x * Mathf.Exp(1f - x);
+
+        return amount * trainingCoefficient * efficiency;
+    }
+
+    // ==================== EĞİTİM GETTER'LARI ====================
+
+    public bool IsTrainingUnlocked()
+    {
+        return trainingUnlocked;
+    }
+
+    public float GetTrainingLevel()
+    {
+        return trainingLevel;
+    }
+
+    public float GetTotalInvested()
+    {
+        return totalInvested;
+    }
+
+    public float GetCurrentSweetSpot()
+    {
+        if (!trainingUnlocked) return 0f;
+        float elapsed = Time.time - trainingUnlockTime;
+        return trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
     }
 
     // ==================== EVENT BINDING ====================
