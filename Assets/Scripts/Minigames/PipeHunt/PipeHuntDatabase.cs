@@ -17,4 +17,11 @@ public class PipeHuntDatabase : ScriptableObject
 
     [Header("Boru Yerleşim")]
     public float minPipeDistance = 0.1f; //borular arası minimum mesafe (normalize 0-1)
+
+    [Header("Süre Aşımı — Şüphe")]
+    [Tooltip("Süre %100 aşıldığında toplam eklenecek şüphe miktarı")]
+    public float suspicionBase = 50f;
+
+    [Tooltip("Büyüme eğrisi gücü (>1 = yavaş başlar hızlı artar)")]
+    public float suspicionExponent = 2f;
 }

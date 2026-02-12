@@ -11,7 +11,7 @@ public class PipeInstance
     public Vector2 position; //normalize koordinat (0-1 arası x ve y)
     public int remainingDurability; //kalan dayanıklılık
     public bool isBurst; //patladı mı
-    public float burstTime; //patladığı an (Time.time)
+    public float burstTime; //patladığı an (Time.unscaledTime)
 
     public PipeInstance(int id, PipeType pipeType, Vector2 position)
     {

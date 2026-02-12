@@ -19,6 +19,10 @@ public class PipeHuntManager : MonoBehaviour
     private float gameTimer;
     private float accumulatedIncome;
 
+    //overtime state
+    private float overtimeElapsed;
+    private float totalSuspicionAdded;
+
     //events — UI dinleyecek
     public static event Action<List<PipeInstance>, float, HuntTool> OnGameStarted; //borular, süre, seçilen alet
     public static event Action<float> OnTimerUpdate; //kalan süre
@@ -28,6 +32,8 @@ public class PipeHuntManager : MonoBehaviour
     public static event Action<int> OnToolDamaged; //alet hasar aldı, kalan dayanıklılık
     public static event Action OnToolBroken; //alet kırıldı
     public static event Action<float> OnIncomeUpdate; //toplam biriken gelir
+    public static event Action OnOvertimeStarted; //süre doldu, overtime başladı
+    public static event Action<float, float> OnOvertimeUpdate; //overtime geçen süre, toplam eklenen şüphe
     public static event Action<PipeHuntResult> OnGameFinished; //minigame bitti
 
     private void Awake()
@@ -40,22 +46,55 @@ public class PipeHuntManager : MonoBehaviour
         Instance = this;
     }
 
+    private void OnEnable()
+    {
+        GameStatManager.OnGameOver += HandleGameOver;
+    }
+
+    private void OnDisable()
+    {
+        GameStatManager.OnGameOver -= HandleGameOver;
+    }
+
+    /// <summary>
+    /// Şüphe %100'e ulaştığında GameStatManager tarafından tetiklenir.
+    /// Minigame aktifse game over olarak bitirir.
+    /// </summary>
+    private void HandleGameOver()
+    {
+        if (!IsPlaying()) return;
+
+        FinishGame(PipeHuntEndReason.GameOver);
+    }
+
     private void Update()
     {
-        if (currentState != PipeHuntState.Active) return;
-
-        //süre sayacı (oyun duraklatılmış, unscaled kullan)
-        gameTimer -= Time.unscaledDeltaTime;
-        OnTimerUpdate?.Invoke(gameTimer);
-
-        //patlayan borulardan gelir biriktir
-        AccumulateIncome();
-
-        //süre doldu
-        if (gameTimer <= 0f)
+        if (currentState == PipeHuntState.Active)
         {
-            gameTimer = 0f;
-            FinishGame(PipeHuntEndReason.TimeUp);
+            //süre sayacı (oyun duraklatılmış, unscaled kullan)
+            gameTimer -= Time.unscaledDeltaTime;
+            OnTimerUpdate?.Invoke(gameTimer);
+
+            //patlayan borulardan gelir biriktir
+            AccumulateIncome();
+
+            //süre doldu → overtime'a geç
+            if (gameTimer <= 0f)
+            {
+                gameTimer = 0f;
+                EnterOvertime();
+            }
+        }
+        else if (currentState == PipeHuntState.Overtime)
+        {
+            //overtime sayacı
+            overtimeElapsed += Time.unscaledDeltaTime;
+
+            //patlayan borulardan gelir biriktir (overtime'da da devam eder)
+            AccumulateIncome();
+
+            //şüphe biriktir
+            AccumulateSuspicion();
         }
     }
 
@@ -94,6 +133,8 @@ public class PipeHuntManager : MonoBehaviour
         gameDuration = Mathf.Lerp(database.minGameDuration, database.maxGameDuration, tool.stealth);
         gameTimer = gameDuration;
         accumulatedIncome = 0f;
+        overtimeElapsed = 0f;
+        totalSuspicionAdded = 0f;
 
         currentState = PipeHuntState.Active;
 
@@ -101,15 +142,16 @@ public class PipeHuntManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.PauseGame();
 
-        OnGameStarted?.Invoke(pipes, gameDuration, currentTool);
+        OnGameStarted?.Invoke(new List<PipeInstance>(pipes), gameDuration, currentTool);
     }
 
     /// <summary>
     /// Oyuncu bir boruya vurdu. UI boru id'sini gönderir.
+    /// Active veya Overtime sırasında çağrılabilir.
     /// </summary>
     public void HitPipe(int pipeId)
     {
-        if (currentState != PipeHuntState.Active) return;
+        if (!IsPlaying()) return;
 
         PipeInstance pipe = GetPipeById(pipeId);
         if (pipe == null || pipe.isBurst) return;
@@ -145,10 +187,11 @@ public class PipeHuntManager : MonoBehaviour
 
     /// <summary>
     /// Oyuncu boş zemine vurdu. Alet aşınır ama boru hasar almaz.
+    /// Active veya Overtime sırasında çağrılabilir.
     /// </summary>
     public void HitEmpty()
     {
-        if (currentState != PipeHuntState.Active) return;
+        if (!IsPlaying()) return;
 
         //alete hasar ver (her vuruş 1 dayanıklılık düşürür)
         toolRemainingDurability--;
@@ -164,10 +207,20 @@ public class PipeHuntManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Oyuncu minigame'den çıkmak istiyor. Active veya Overtime sırasında çağrılabilir.
+    /// </summary>
+    public void LeaveGame()
+    {
+        if (!IsPlaying()) return;
+
+        FinishGame(PipeHuntEndReason.PlayerLeft);
+    }
+
     // ==================== UI İÇİN GETTER'LAR ====================
 
     /// <summary>
-    /// Oyuncunun seçebileceği aletlerin listesini döner. UI alet seçim ekranında kullanır.
+    /// Oyuncunun seçebileceği aletlerin listesini döner.
     /// </summary>
     public List<HuntTool> GetAvailableTools()
     {
@@ -175,7 +228,7 @@ public class PipeHuntManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Belirli bir alet için hesaplanan oyun süresini döner. UI'da alet bilgisi gösterirken kullanılır.
+    /// Belirli bir alet için hesaplanan oyun süresini döner.
     /// </summary>
     public float GetToolDuration(HuntTool tool)
     {
@@ -184,6 +237,24 @@ public class PipeHuntManager : MonoBehaviour
     }
 
     // ==================== İÇ MANTIK ====================
+
+    /// <summary>
+    /// Active veya Overtime state'inde mi kontrolü.
+    /// </summary>
+    private bool IsPlaying()
+    {
+        return currentState == PipeHuntState.Active || currentState == PipeHuntState.Overtime;
+    }
+
+    /// <summary>
+    /// Süre dolduğunda Overtime state'ine geçer.
+    /// </summary>
+    private void EnterOvertime()
+    {
+        currentState = PipeHuntState.Overtime;
+        overtimeElapsed = 0f;
+        OnOvertimeStarted?.Invoke();
+    }
 
     /// <summary>
     /// Boruları rastgele yerleştirir. Borular arası minimum mesafe kontrolü yapar.
@@ -262,6 +333,31 @@ public class PipeHuntManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Overtime sırasında şüphe biriktirir.
+    /// Formül: base * (overtimePercent / 100) ^ exponent
+    /// Her frame hedef toplam şüpheyi hesaplar, farkı GameStatManager'a ekler.
+    /// </summary>
+    private void AccumulateSuspicion()
+    {
+        float overtimePercent = (overtimeElapsed / gameDuration) * 100f;
+        float targetSuspicion = database.suspicionBase * Mathf.Pow(overtimePercent / 100f, database.suspicionExponent);
+        float delta = targetSuspicion - totalSuspicionAdded;
+
+        if (delta > 0f)
+        {
+            totalSuspicionAdded = targetSuspicion;
+
+            if (GameStatManager.Instance != null)
+                GameStatManager.Instance.AddSuspicion(delta);
+
+            //AddSuspicion game over tetiklemiş olabilir — state değiştiyse devam etme
+            if (currentState != PipeHuntState.Overtime) return;
+
+            OnOvertimeUpdate?.Invoke(overtimeElapsed, totalSuspicionAdded);
+        }
+    }
+
+    /// <summary>
     /// Minigame'i bitirir. Toplam geliri wealth'e ekler, cooldown başlatır.
     /// </summary>
     private void FinishGame(PipeHuntEndReason reason)
@@ -292,11 +388,13 @@ public class PipeHuntManager : MonoBehaviour
         result.remainingTime = gameTimer;
         result.toolUsed = currentTool;
         result.toolCostPaid = currentTool != null ? currentTool.cost : 0;
+        result.overtimeElapsed = overtimeElapsed;
+        result.suspicionAdded = totalSuspicionAdded;
 
         OnGameFinished?.Invoke(result);
 
-        //ana oyunu devam ettir
-        if (GameManager.Instance != null)
+        //ana oyunu devam ettir (game over değilse — game over'da oyun zaten bitti, resume yapma)
+        if (reason != PipeHuntEndReason.GameOver && GameManager.Instance != null)
             GameManager.Instance.ResumeGame();
 
         //state'i sıfırla
@@ -323,7 +421,7 @@ public class PipeHuntManager : MonoBehaviour
 
     public List<PipeInstance> GetPipes()
     {
-        return pipes;
+        return new List<PipeInstance>(pipes);
     }
 
     public int GetToolRemainingDurability()
@@ -345,19 +443,31 @@ public class PipeHuntManager : MonoBehaviour
     {
         return currentTool;
     }
+
+    public float GetOvertimeElapsed()
+    {
+        return overtimeElapsed;
+    }
+
+    public float GetTotalSuspicionAdded()
+    {
+        return totalSuspicionAdded;
+    }
 }
 
 public enum PipeHuntState
 {
     Idle,       //minigame aktif değil
-    Active,     //oyun devam ediyor
+    Active,     //oyun devam ediyor (süre içinde)
+    Overtime,   //süre doldu ama oyuncu devam ediyor (şüphe artıyor)
     Finished    //oyun bitti (geçiş anı)
 }
 
 public enum PipeHuntEndReason
 {
-    TimeUp,       //süre doldu
-    ToolBroken    //alet kırıldı
+    PlayerLeft,   //oyuncu kendi çıktı
+    ToolBroken,   //alet kırıldı
+    GameOver      //şüphe %100'e ulaştı — tüm oyun bitti
 }
 
 [System.Serializable]
@@ -367,7 +477,9 @@ public class PipeHuntResult
     public int burstPipeCount;      //patlayan boru sayısı
     public int totalPipeCount;      //toplam boru sayısı
     public PipeHuntEndReason endReason; //bitiş sebebi
-    public float remainingTime;     //kalan süre (alet kırıldıysa > 0)
+    public float remainingTime;     //kalan süre (süre içinde çıktıysa > 0)
     public HuntTool toolUsed;       //kullanılan alet
     public int toolCostPaid;        //ödenen alet maliyeti
+    public float overtimeElapsed;   //süre aşımında ne kadar kaldı
+    public float suspicionAdded;    //eklenen toplam şüphe
 }
