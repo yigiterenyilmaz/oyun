@@ -57,6 +57,9 @@ Oyuncu aleti secer → UI: StartGame(selectedTool)
 
 ### 2. StartGame(HuntTool tool)
 
+Oyuncu alet secim ekraninda bir alet secip "Basla" butonuna bastiginda UI bu metodu cagirir.
+Seçilen aletin maliyeti kesilir, borular yerlestirilir, sure hesaplanir ve minigame baslar.
+
 Sırasıyla şunlar olur:
 
 ```
@@ -97,6 +100,10 @@ if gameTimer <= 0:
 ### 4. Oyuncu Etkilesimi
 
 **Boruya vurus — HitPipe(pipeId):**
+
+Oyuncu ekrana dokundu ve dokunma noktasi bir borunun uzerine denk geldi.
+UI dokunma pozisyonunu kontrol eder, bir boruya denk geldiyse o borunun id'sini bu metoda gonderir.
+
 ```
 1. Boru bulunur (id ile aranır)
 2. Zaten patlaksa → return
@@ -117,6 +124,11 @@ if gameTimer <= 0:
 ```
 
 **Bos zemine vurus — HitEmpty():**
+
+Oyuncu ekrana dokundu ama dokunma noktasi hicbir borunun uzerinde degil.
+UI dokunma pozisyonunu kontrol eder, hicbir boruya denk gelmediyse bu metodu cagirir.
+Alet yine asinir ama hicbir boru hasar almaz — bosa vurus.
+
 ```
 1. toolRemainingDurability -= 1
 2. OnToolDamaged(kalanDayaniklilik)
@@ -125,6 +137,11 @@ if gameTimer <= 0:
 ```
 
 **Oyuncu cikis — LeaveGame():**
+
+Oyuncu "Cik" butonuna bastiginda UI bu metodu cagirir.
+Sure dolmadan da cikabilir (kazancini alir), overtime'da da cikabilir (suphe durur).
+Minigame sonlanir, gelir wealth'e eklenir, ana oyun devam eder.
+
 ```
 → FinishGame(PlayerLeft)
 ```

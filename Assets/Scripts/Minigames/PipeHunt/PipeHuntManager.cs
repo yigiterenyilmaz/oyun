@@ -20,8 +20,8 @@ public class PipeHuntManager : MonoBehaviour
     private float accumulatedIncome;
 
     //overtime state
-    private float overtimeElapsed;
-    private float totalSuspicionAdded;
+    private float overtimeElapsed;//süre bittikten sonra oyuncunun kaç saniye daha fazla kaldığını tutar.
+    private float totalSuspicionAdded; //overtime boyunca eklenen toplam şüphe miktarı
 
     //events — UI dinleyecek
     public static event Action<List<PipeInstance>, float, HuntTool> OnGameStarted; //borular, süre, seçilen alet
@@ -101,7 +101,9 @@ public class PipeHuntManager : MonoBehaviour
     // ==================== UI'IN ÇAĞIRDIĞI METODLAR ====================
 
     /// <summary>
-    /// Minigame'i seçilen aletle başlatır. Alet maliyeti ödenir, süre stealth'e göre hesaplanır.
+    /// Oyuncu alet seçim ekranından bir alet seçip "Başla" butonuna bastığında UI bu metodu çağırır.
+    /// Seçilen aletin maliyeti wealth'den kesilir, borular zemine yerleştirilir,
+    /// süre aletin stealth değerine göre hesaplanır ve minigame başlar.
     /// </summary>
     public void StartGame(HuntTool tool)
     {
@@ -146,8 +148,9 @@ public class PipeHuntManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyuncu bir boruya vurdu. UI boru id'sini gönderir.
-    /// Active veya Overtime sırasında çağrılabilir.
+    /// Oyuncu ekrana dokundu ve dokunduğu yer bir borunun üzerine denk geldi.
+    /// UI dokunma pozisyonunu kontrol eder, bir boruya denk geldiyse o borunun id'sini
+    /// bu metoda gönderir. Boru hasar alır, alet aşınır. Boru patlarsa gelir üretmeye başlar.
     /// </summary>
     public void HitPipe(int pipeId)
     {
@@ -186,8 +189,9 @@ public class PipeHuntManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyuncu boş zemine vurdu. Alet aşınır ama boru hasar almaz.
-    /// Active veya Overtime sırasında çağrılabilir.
+    /// Oyuncu ekrana dokundu ama dokunduğu yer hiçbir borunun üzerinde değil.
+    /// UI dokunma pozisyonunu kontrol eder, hiçbir boruya denk gelmediyse bu metodu çağırır.
+    /// Alet yine aşınır ama hiçbir boru hasar almaz — boşa vuruş.
     /// </summary>
     public void HitEmpty()
     {
@@ -208,7 +212,9 @@ public class PipeHuntManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyuncu minigame'den çıkmak istiyor. Active veya Overtime sırasında çağrılabilir.
+    /// Oyuncu "Çık" butonuna bastığında UI bu metodu çağırır.
+    /// Süre dolmadan da çıkabilir (kazancını alır), overtime'da da çıkabilir (şüphe durur).
+    /// Minigame sonlanır, gelir wealth'e eklenir, ana oyun devam eder.
     /// </summary>
     public void LeaveGame()
     {
