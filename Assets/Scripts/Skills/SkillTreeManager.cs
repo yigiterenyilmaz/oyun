@@ -408,6 +408,17 @@ public class SkillTreeManager : MonoBehaviour
         return trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
     }
 
+    /// <summary>
+    /// Bilim adamını listeden kalıcı olarak çıkarır (kaçak operasyona gönderildi).
+    /// </summary>
+    public bool RemoveScientist(int index)
+    {
+        if (index < 0 || index >= scientists.Count) return false;
+
+        scientists.RemoveAt(index);
+        return true;
+    }
+
     // ==================== EVENT BINDING ====================
 
     private void OnEnable()

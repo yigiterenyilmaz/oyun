@@ -26,6 +26,12 @@ public class SkillEditor : Editor
         SkillEffectDrawer.DrawEffectList(serializedObject.FindProperty("effects"));
 
         EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Diğer Ön Koşullar", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(
+            serializedObject.FindProperty("otherPrerequisites")
+        );
+
+        EditorGUILayout.Space();
         EditorGUILayout.LabelField("Blocks Skills", EditorStyles.boldLabel);
         EditorGUILayout.PropertyField(
             serializedObject.FindProperty("blocksSkills"),
