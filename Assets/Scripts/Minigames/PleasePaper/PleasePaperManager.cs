@@ -78,10 +78,21 @@ public class PleasePaperManager : MonoBehaviour
     public static event Action<string> OnPleasePaperFailed; //minigame başlatılamadı (ileride kullanılacak)
 #pragma warning restore 0067
 
+    public void DebugShowSuccess()
     {
-        OnBargainingStarted?.Invoke(0.75f); // %87.5 başarı oranı
-    }
+        // Fake pending result oluştur
+        pendingResult = new PleasePaperResult
+        {
+            success = true,
+            isFakeCrisis = false,
+            bargainingPower = 0.75f,
+            wealthChange = 5000,
+            suspicionChange = 10
+        };
     
+        currentState = PleasePaperState.BargainingPhase;
+        OnBargainingStarted?.Invoke(0.75f);
+    }
     public void DebugShowFailure()
     {
         OnGameOver?.Invoke("Debug: Control stat dropped to zero.");
