@@ -58,10 +58,7 @@ public class ScientistSmuggleManager : MonoBehaviour
     private ScientistSmuggleResult pendingResult;
 
     //offer tekrar sistemi
-    private HashSet<ScientistSmuggleEvent> completedOffers = new HashSet<ScientistSmuggleEvent>();
-    private ScientistSmuggleEvent lastOffer;
-    private Dictionary<ScientistSmuggleEvent, int> rejectionCounts = new Dictionary<ScientistSmuggleEvent, int>();
-    private const int maxRejectionsBeforeDrop = 2;
+    private HashSet<ScientistSmuggleEvent> usedOffers = new HashSet<ScientistSmuggleEvent>(); //kabul veya ret edilen offer'lar (bir daha gelmez)
 
     //events — UI bu event'leri dinleyecek
     public static event Action<ScientistSmuggleEvent> OnOfferReceived;              //teklif geldi
@@ -226,26 +223,20 @@ public class ScientistSmuggleManager : MonoBehaviour
         //EventCoordinator cooldown kontrolü
         if (!EventCoordinator.CanShowEvent()) return;
 
-        //uygun offer'ları filtrele
+        //uygun offer'ları filtrele (kullanılmış offer'lar bir daha gelmez)
         List<ScientistSmuggleEvent> available = new List<ScientistSmuggleEvent>();
         for (int i = 0; i < database.offerEvents.Count; i++)
         {
             ScientistSmuggleEvent offer = database.offerEvents[i];
-            if (completedOffers.Contains(offer)) continue;
-            if (rejectionCounts.ContainsKey(offer) && rejectionCounts[offer] >= maxRejectionsBeforeDrop) continue;
+            if (usedOffers.Contains(offer)) continue;
             available.Add(offer);
         }
-
-        //art arda tekrar engeli
-        if (available.Count > 1)
-            available.Remove(lastOffer);
 
         if (available.Count == 0) return;
 
         //rastgele teklif seç
         int idx = UnityEngine.Random.Range(0, available.Count);
         currentOffer = available[idx];
-        lastOffer = currentOffer;
 
         EventCoordinator.MarkEventShown();
 
@@ -283,8 +274,8 @@ public class ScientistSmuggleManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.ResumeGame();
 
-        //tamamlanan offer olarak kaydet
-        completedOffers.Add(currentOffer);
+        //offer'ı kullanılmış olarak işaretle (bir daha gelmez)
+        usedOffers.Add(currentOffer);
 
         StartActiveProcess();
     }
@@ -300,13 +291,9 @@ public class ScientistSmuggleManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.ResumeGame();
 
-        //ret sayısını artır
+        //offer'ı kullanılmış olarak işaretle (bir daha gelmez)
         if (currentOffer != null)
-        {
-            if (!rejectionCounts.ContainsKey(currentOffer))
-                rejectionCounts[currentOffer] = 0;
-            rejectionCounts[currentOffer]++;
-        }
+            usedOffers.Add(currentOffer);
 
         currentOffer = null;
         currentState = ScientistSmuggleState.Idle;

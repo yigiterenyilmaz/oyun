@@ -308,9 +308,9 @@ public class SkillTreeManager : MonoBehaviour
         ScientistTraining scientist = scientists[scientistIndex];
         if (scientist.isCompleted) return false;
 
-        //bu bilim adamının kendi zamanlayıcısından ideal noktayı hesapla
+        //bu bilim adamının kendi zamanlayıcısından ideal noktayı hesapla (zeka hızı etkiler)
         float elapsed = Time.time - scientist.startTime;
-        float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
+        float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * scientist.data.intelligenceLevel * elapsed;
 
         //çan eğrisi: x * e^(1-x) — x=1'de zirve, altında ve üstünde düşer
         float newTotal = scientist.totalInvested + amount;
@@ -347,7 +347,7 @@ public class SkillTreeManager : MonoBehaviour
         if (scientist.isCompleted) return 0f;
 
         float elapsed = Time.time - scientist.startTime;
-        float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
+        float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * scientist.data.intelligenceLevel * elapsed;
         float x = (scientist.totalInvested + amount) / sweetSpot;
         float efficiency = x * Mathf.Exp(1f - x);
 
@@ -404,8 +404,9 @@ public class SkillTreeManager : MonoBehaviour
     public float GetScientistSweetSpot(int scientistIndex)
     {
         if (scientistIndex < 0 || scientistIndex >= scientists.Count) return 0f;
-        float elapsed = Time.time - scientists[scientistIndex].startTime;
-        return trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
+        ScientistTraining scientist = scientists[scientistIndex];
+        float elapsed = Time.time - scientist.startTime;
+        return trainingBaseSweetSpot + trainingSweetSpotGrowthRate * scientist.data.intelligenceLevel * elapsed;
     }
 
     /// <summary>
