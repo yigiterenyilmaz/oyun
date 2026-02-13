@@ -16,6 +16,10 @@ public class ScientistSmuggleEvent : ScriptableObject
     //--- Süreç event havuzu (sadece Offer için, boşsa database'den alınır) ---
     public List<ScientistSmuggleEvent> processEvents; //bu offer'a özel süreç eventleri
 
+    //--- Musallat etki tipi (sadece eventType == PostProcess iken anlamlı) ---
+    public PostProcessEffectType postProcessEffect; //bu musallat eventinin etki tipi
+    public int scientistKillCount;  //ScientistKill: öldürülecek bilim adamı sayısı (rastgele seçilir)
+
     //--- Karar süresi ---
     public float decisionTime = 10f; //oyuncunun karar vermesi için verilen süre (saniye)
 
@@ -26,8 +30,18 @@ public class ScientistSmuggleEvent : ScriptableObject
 
 public enum ScientistSmuggleEventType
 {
-    Offer,   //teklif eventi — ülke bilgisi, baseReward, riskLevel taşır
-    Process  //süreç eventi — choices ile risk seviyesini etkiler
+    Offer,       //teklif eventi — ülke bilgisi, baseReward, riskLevel taşır
+    Process,     //süreç eventi — choices ile risk seviyesini etkiler
+    PostProcess  //operasyon sonrası musallat eventi — choices ile suspicion/cost etkiler
+}
+
+/// <summary>
+/// Musallat eventlerinin etki tipleri. Yeni musallat etkileri buraya eklenir.
+/// </summary>
+public enum PostProcessEffectType
+{
+    None,           //sadece choices etkisi (suspicion/cost)
+    ScientistKill   //bilim adamı öldürme
 }
 
 [System.Serializable]
