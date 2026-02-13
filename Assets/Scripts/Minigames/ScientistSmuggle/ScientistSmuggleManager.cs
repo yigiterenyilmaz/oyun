@@ -18,17 +18,20 @@ public class ScientistSmuggleManager : MonoBehaviour
     [Header("Süreç Ayarları")]
     public float processDuration = 300f;       //süreç süresi (5 dakika)
     public float processEventInterval = 15f;   //süreç sırasında event kontrol aralığı
-    public float initialControlStat = 40f;     //controlStat başlangıç değeri
+    public float riskCheckInterval = 1f;       //game over kontrol aralığı (saniye)
+    public float riskMultiplier = 0.003f;      //risk çarpanı (risk * (1-stealth) * multiplier = saniyedeki game over şansı)
 
     //mevcut durum
     private ScientistSmuggleState currentState = ScientistSmuggleState.Idle;
-    private ScientistSmuggleEvent currentOffer; //şu anki teklif eventi
+    private ScientistSmuggleEvent currentOffer;
 
     //gönderilen bilim adamı
-    private int assignedScientistIndex = -1; //bu operasyona atanan bilim adamının index'i
+    private int assignedScientistIndex = -1;
+    private float assignedStealthLevel; //atanan bilim adamının gizlilik seviyesi (süreç boyunca saklanır)
 
-    //controlStat: 0-100 arası, süreç boyunca eventlerle değişir
-    private float controlStat;
+    //risk sistemi
+    private float effectiveRiskLevel; //ülke riskLevel + event modifier'ları
+    private float accumulatedRiskModifier; //event'lerden biriken risk değişimi
 
     //zamanlayıcılar
     private float offerTimer;
@@ -37,6 +40,7 @@ public class ScientistSmuggleManager : MonoBehaviour
     private float processTimer;
     private float eventCheckTimer;
     private float eventDecisionTimer;
+    private float riskCheckTimer;
 
     //event sistemi
     private ScientistSmuggleEvent currentEvent;
@@ -54,23 +58,21 @@ public class ScientistSmuggleManager : MonoBehaviour
     private ScientistSmuggleResult pendingResult;
 
     //offer tekrar sistemi
-    private HashSet<ScientistSmuggleEvent> completedOffers = new HashSet<ScientistSmuggleEvent>(); //tamamlanan offer'lar (kalıcı olarak havuzdan çıkar)
-    private ScientistSmuggleEvent lastOffer; //son gösterilen offer (art arda tekrar engeli)
+    private HashSet<ScientistSmuggleEvent> completedOffers = new HashSet<ScientistSmuggleEvent>();
+    private ScientistSmuggleEvent lastOffer;
     private Dictionary<ScientistSmuggleEvent, int> rejectionCounts = new Dictionary<ScientistSmuggleEvent, int>();
     private const int maxRejectionsBeforeDrop = 2;
 
     //events — UI bu event'leri dinleyecek
-    public static event Action<ScientistSmuggleEvent> OnOfferReceived;                  //teklif geldi
-    public static event Action<float> OnOfferDecisionTimerUpdate;                       //teklif karar sayacı
-    public static event Action<ScientistSmuggleEvent, float> OnProcessStarted;          //süreç başladı (offer, süre)
-    public static event Action<float> OnProcessProgress;                                //ilerleme (0-1)
-    public static event Action<float> OnControlStatChanged;                             //controlStat değişti
-    public static event Action<ScientistSmuggleEvent> OnSmuggleEventTriggered;          //event tetiklendi
-    public static event Action<float> OnEventDecisionTimerUpdate;                       //event karar sayacı
-    public static event Action<ScientistSmuggleEventChoice> OnSmuggleEventResolved;     //seçim yapıldı
-    public static event Action<float> OnBargainingStarted;                              //pazarlık başladı (bargainingPower)
-    public static event Action<string> OnGameOver;                                      //süreç başarısız bitti (sebep)
-    public static event Action<ScientistSmuggleResult> OnProcessCompleted;              //süreç bitti (sonuç)
+    public static event Action<ScientistSmuggleEvent> OnOfferReceived;              //teklif geldi
+    public static event Action<float> OnOfferDecisionTimerUpdate;                   //teklif karar sayacı
+    public static event Action<ScientistSmuggleEvent, float> OnProcessStarted;      //süreç başladı (offer, süre)
+    public static event Action<float> OnProcessProgress;                            //ilerleme (0-1)
+    public static event Action<ScientistSmuggleEvent> OnSmuggleEventTriggered;      //event tetiklendi
+    public static event Action<float> OnEventDecisionTimerUpdate;                   //event karar sayacı
+    public static event Action<ScientistSmuggleEventChoice> OnSmuggleEventResolved; //seçim yapıldı
+    public static event Action<string> OnGameOver;                                  //rastgele game over (sebep)
+    public static event Action<ScientistSmuggleResult> OnProcessCompleted;          //süreç bitti (sonuç)
 
     private void Awake()
     {
@@ -138,7 +140,7 @@ public class ScientistSmuggleManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ActiveProcess: süreç süresi, timer ilerler, event'ler kontrol edilir.
+    /// ActiveProcess: süreç timer'ı ilerler, risk kontrolü ve event kontrolü yapılır.
     /// </summary>
     private void UpdateActiveProcess()
     {
@@ -148,6 +150,18 @@ public class ScientistSmuggleManager : MonoBehaviour
         float progress = Mathf.Clamp01(processTimer / processDuration);
         OnProcessProgress?.Invoke(progress);
 
+        //rastgele game over kontrolü
+        riskCheckTimer += Time.deltaTime;
+        if (riskCheckTimer >= riskCheckInterval)
+        {
+            riskCheckTimer = 0f;
+            if (RollForGameOver())
+            {
+                FailProcess("Operasyon deşifre oldu.");
+                return;
+            }
+        }
+
         //event kontrol
         eventCheckTimer += Time.deltaTime;
         if (eventCheckTimer >= processEventInterval)
@@ -155,14 +169,13 @@ public class ScientistSmuggleManager : MonoBehaviour
             eventCheckTimer = 0f;
             TryTriggerProcessEvent();
 
-            //event tetiklendiyse bu frame'de süreç sonucu hesaplama
             if (currentState != ScientistSmuggleState.ActiveProcess) return;
         }
 
-        //süreç bitti mi
+        //süreç bitti — başarı
         if (processTimer >= processDuration)
         {
-            CalculateResult();
+            CompleteProcess();
         }
     }
 
@@ -183,6 +196,22 @@ public class ScientistSmuggleManager : MonoBehaviour
                 : 0;
             ResolveEvent(defaultIdx);
         }
+    }
+
+    // ==================== RİSK SİSTEMİ ====================
+
+    /// <summary>
+    /// Game over zarı atar. Şans = riskMultiplier * effectiveRisk * (1 - stealth).
+    /// effectiveRisk = ülke riskLevel + event modifier'ları (0-1 arası clamp).
+    /// </summary>
+    private bool RollForGameOver()
+    {
+        float adjustedRisk = Mathf.Clamp01(effectiveRiskLevel + accumulatedRiskModifier);
+        float gameOverChance = riskMultiplier * adjustedRisk * (1f - assignedStealthLevel);
+
+        if (gameOverChance <= 0f) return false;
+
+        return UnityEngine.Random.value < gameOverChance;
     }
 
     // ==================== TEKLİF SİSTEMİ ====================
@@ -243,8 +272,11 @@ public class ScientistSmuggleManager : MonoBehaviour
         ScientistTraining scientist = SkillTreeManager.Instance.GetScientist(scientistIndex);
         if (scientist == null || !scientist.isCompleted) return;
 
-        //bilim adamını ata ve listeden kalıcı olarak çıkar
+        //bilim adamının gizlilik seviyesini sakla
         assignedScientistIndex = scientistIndex;
+        assignedStealthLevel = scientist.data.stealthLevel;
+
+        //bilim adamını listeden kalıcı olarak çıkar
         SkillTreeManager.Instance.RemoveScientist(scientistIndex);
 
         //oyunu devam ettir
@@ -285,17 +317,19 @@ public class ScientistSmuggleManager : MonoBehaviour
     // ==================== SÜREÇ SİSTEMİ ====================
 
     /// <summary>
-    /// Süreçi başlatır. controlStat başlangıç değerinden başlar.
+    /// Süreçi başlatır. Risk seviyesi offer'dan alınır.
     /// </summary>
     private void StartActiveProcess()
     {
         currentState = ScientistSmuggleState.ActiveProcess;
 
-        controlStat = initialControlStat;
-        processTimer = 0f;
-        eventCheckTimer = 0f;
+        effectiveRiskLevel = currentOffer.riskLevel;
+        accumulatedRiskModifier = 0f;
         accumulatedSuspicionModifier = 0f;
         accumulatedCostModifier = 0;
+        processTimer = 0f;
+        eventCheckTimer = 0f;
+        riskCheckTimer = 0f;
         triggeredEvents.Clear();
         currentEvent = null;
 
@@ -305,7 +339,6 @@ public class ScientistSmuggleManager : MonoBehaviour
             : database.processEvents;
 
         OnProcessStarted?.Invoke(currentOffer, processDuration);
-        OnControlStatChanged?.Invoke(controlStat);
     }
 
     /// <summary>
@@ -348,7 +381,7 @@ public class ScientistSmuggleManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyuncu event seçimi yaptı. controlStat güncellenir.
+    /// Oyuncu event seçimi yaptı. Risk modifier biriktirilir.
     /// </summary>
     public void ResolveEvent(int choiceIndex)
     {
@@ -358,12 +391,9 @@ public class ScientistSmuggleManager : MonoBehaviour
         ScientistSmuggleEventChoice choice = currentEvent.choices[choiceIndex];
 
         //modifier'ları biriktir
+        accumulatedRiskModifier += choice.riskModifier;
         accumulatedSuspicionModifier += choice.suspicionModifier;
         accumulatedCostModifier += choice.costModifier;
-
-        //controlStat güncelle
-        controlStat = Mathf.Clamp(controlStat + choice.controlStatModifier, 0f, 100f);
-        OnControlStatChanged?.Invoke(controlStat);
 
         OnSmuggleEventResolved?.Invoke(choice);
 
@@ -373,72 +403,41 @@ public class ScientistSmuggleManager : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.ResumeGame();
 
-        //controlStat 0 kontrolü
-        if (controlStat <= 0f)
-        {
-            FailProcess();
-            return;
-        }
-
         currentState = ScientistSmuggleState.ActiveProcess;
     }
 
     // ==================== SONUÇ SİSTEMİ ====================
 
     /// <summary>
-    /// Süreç sonu: controlStat < 50 → fail, >= 50 → pazarlık.
+    /// Süre doldu — operasyon başarılı. baseReward kazanılır.
     /// </summary>
-    private void CalculateResult()
+    private void CompleteProcess()
     {
-        if (controlStat < 50f)
-        {
-            FailProcess();
-            return;
-        }
-
-        StartBargaining();
-    }
-
-    /// <summary>
-    /// Pazarlık fazını başlatır. bargainingPower controlStat'a göre hesaplanır.
-    /// </summary>
-    private void StartBargaining()
-    {
-        currentState = ScientistSmuggleState.BargainingPhase;
-
-        float bargainingPower = (controlStat - 50f) / 50f; //0.0 - 1.0 arası
+        currentState = ScientistSmuggleState.ResultScreen;
 
         pendingResult = new ScientistSmuggleResult();
         pendingResult.success = true;
         pendingResult.offer = currentOffer;
-        pendingResult.bargainingPower = bargainingPower;
-        pendingResult.finalControlStat = controlStat;
-        pendingResult.wealthChange = currentOffer.baseReward * (0.5f + bargainingPower * 0.5f)
-            - accumulatedCostModifier;
+        pendingResult.wealthChange = currentOffer.baseReward - accumulatedCostModifier;
         pendingResult.suspicionChange = accumulatedSuspicionModifier;
 
-        //oyunu duraklat — pazarlık ekranında zaman durmalı
+        //oyunu duraklat — sonuç ekranında zaman durmalı
         if (GameManager.Instance != null)
             GameManager.Instance.PauseGame();
 
-        OnBargainingStarted?.Invoke(bargainingPower);
+        OnProcessCompleted?.Invoke(pendingResult);
     }
 
     /// <summary>
-    /// Süreç başarısız oldu. controlStat 0'a düştü veya süreç sonunda < 50.
+    /// Operasyon deşifre oldu — game over.
     /// </summary>
-    private void FailProcess()
+    private void FailProcess(string reason)
     {
-        currentState = ScientistSmuggleState.BargainingPhase; //sonuç ekranı bekliyor
-
-        string reason = controlStat <= 0f
-            ? "Control stat dropped to zero."
-            : "Control stat below threshold at process end.";
+        currentState = ScientistSmuggleState.ResultScreen;
 
         pendingResult = new ScientistSmuggleResult();
         pendingResult.success = false;
         pendingResult.offer = currentOffer;
-        pendingResult.finalControlStat = controlStat;
         pendingResult.wealthChange = -accumulatedCostModifier;
         pendingResult.suspicionChange = accumulatedSuspicionModifier;
 
@@ -478,8 +477,6 @@ public class ScientistSmuggleManager : MonoBehaviour
             GameManager.Instance.ResumeGame();
 
         ResetState();
-
-        OnProcessCompleted?.Invoke(result);
     }
 
     /// <summary>
@@ -490,6 +487,8 @@ public class ScientistSmuggleManager : MonoBehaviour
         currentEvent = null;
         currentOffer = null;
         assignedScientistIndex = -1;
+        assignedStealthLevel = 0f;
+        accumulatedRiskModifier = 0f;
         currentState = ScientistSmuggleState.Idle;
         nextOfferTime = UnityEngine.Random.Range(minOfferInterval, maxOfferInterval);
         offerTimer = 0f;
@@ -507,16 +506,19 @@ public class ScientistSmuggleManager : MonoBehaviour
         return currentState;
     }
 
-    public float GetControlStat()
-    {
-        return controlStat;
-    }
-
     public float GetProcessProgress()
     {
         if (currentState != ScientistSmuggleState.ActiveProcess && currentState != ScientistSmuggleState.EventPhase)
             return 0f;
         return Mathf.Clamp01(processTimer / processDuration);
+    }
+
+    /// <summary>
+    /// Şu anki efektif risk seviyesini döner (ülke riski + event modifier'ları, 0-1 arası).
+    /// </summary>
+    public float GetEffectiveRisk()
+    {
+        return Mathf.Clamp01(effectiveRiskLevel + accumulatedRiskModifier);
     }
 }
 
@@ -525,11 +527,11 @@ public class ScientistSmuggleManager : MonoBehaviour
 /// </summary>
 public enum ScientistSmuggleState
 {
-    Idle,            //teklif bekleniyor
-    OfferPending,    //teklif geldi, karar bekleniyor
-    ActiveProcess,   //süreç devam ediyor
-    EventPhase,      //event geldi, karar bekleniyor
-    BargainingPhase  //pazarlık aşaması
+    Idle,           //teklif bekleniyor
+    OfferPending,   //teklif geldi, karar bekleniyor
+    ActiveProcess,  //süreç devam ediyor
+    EventPhase,     //event geldi, karar bekleniyor
+    ResultScreen    //sonuç ekranı gösteriliyor
 }
 
 /// <summary>
@@ -539,9 +541,7 @@ public enum ScientistSmuggleState
 public class ScientistSmuggleResult
 {
     public bool success;
-    public ScientistSmuggleEvent offer;    //teklif eventi
+    public ScientistSmuggleEvent offer;
     public float wealthChange;
     public float suspicionChange;
-    public float bargainingPower;          //başarılıysa pazarlık gücü (0-1)
-    public float finalControlStat;         //süreç sonundaki controlStat
 }
