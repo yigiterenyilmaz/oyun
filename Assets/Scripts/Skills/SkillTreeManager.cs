@@ -325,7 +325,7 @@ public class SkillTreeManager : MonoBehaviour
         scientist.level += points;
 
         //tamamlanma kontrolü
-        if (!scientist.isCompleted && scientist.level >= scientist.data.completionLevel)
+        if (!scientist.isCompleted && scientist.level >= scientist.data.completeCost)
         {
             scientist.isCompleted = true;
             OnScientistCompleted?.Invoke(scientistIndex);
