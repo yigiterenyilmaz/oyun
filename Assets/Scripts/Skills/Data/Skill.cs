@@ -11,6 +11,7 @@ public class Skill : ScriptableObject
     public int cost; //skill in bedeli
     public List<Skill> prerequisites; //skill in ön koşulları
     [SerializeReference] public List<SkillEffect> effects = new List<SkillEffect>(); //skill açılınca oluşan efektler
-    public float requiredTrainingLevel;  //bu skill için gereken minimum eğitim seviyesi (0 ise gereksinim yok)
+    [Header("Diğer Ön Koşullar")]
+    public OtherPrerequisite otherPrerequisites; //tiklenebilir ek gereksinimler
     public List<Skill> blocksSkills; //bu skill açılınca hangi skillerin sonsuza kadar kilitlenmesi gerektiği
 }

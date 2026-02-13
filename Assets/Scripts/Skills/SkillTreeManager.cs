@@ -16,14 +16,12 @@ public class SkillTreeManager : MonoBehaviour
     private float passiveIncomeTimer = 0f;
     private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
-    //training — eğitim sistemi
+    //training — bilim adamı eğitim sistemi
     private bool trainingUnlocked = false;
-    private float trainingLevel = 0f;
-    private float totalInvested = 0f;
+    private List<ScientistTraining> scientists = new List<ScientistTraining>();
     private float trainingCoefficient = 0f;
     private float trainingBaseSweetSpot = 0f;
     private float trainingSweetSpotGrowthRate = 0f;
-    private float trainingUnlockTime = 0f; //eğitimin açıldığı an (Time.time)
 
     //events — passive income
     public static event Action<List<PassiveIncomeProduct>> OnProductsUnlocked; //yeni ürünler satın alınabilir
@@ -32,8 +30,10 @@ public class SkillTreeManager : MonoBehaviour
     public static event Action<float> OnPassiveIncomeTick; //bu tick'te kazanılan toplam gelir
 
     //events — training
-    public static event Action OnTrainingUnlocked; //eğitim alanı açıldı
-    public static event Action<float> OnTrainingLevelChanged; //yeni seviye
+    public static event Action OnTrainingUnlocked; //eğitim sistemi açıldı
+    public static event Action<int> OnScientistStarted; //yeni bilim adamı index'i
+    public static event Action<int, float> OnScientistLevelChanged; //bilim adamı index'i, yeni seviye
+    public static event Action<int> OnScientistCompleted; //eğitimi tamamlanan bilim adamı index'i
 
     private void Awake()
     {
@@ -107,10 +107,10 @@ public class SkillTreeManager : MonoBehaviour
             }
         }
 
-        //eğitim seviyesi gereksinimi kontrolü
-        if (skill.requiredTrainingLevel > 0f)
+        //diğer ön koşullar kontrolü (flags enum)
+        if (skill.otherPrerequisites != OtherPrerequisite.None)
         {
-            if (trainingLevel < skill.requiredTrainingLevel)
+            if (!CheckOtherPrerequisites(skill.otherPrerequisites))
                 return false;
         }
 
@@ -261,7 +261,7 @@ public class SkillTreeManager : MonoBehaviour
     // ==================== EĞİTİM SİSTEMİ ====================
 
     /// <summary>
-    /// UnlockTrainingEffect tarafından çağrılır. Eğitim alanını açar ve eğri parametrelerini ayarlar.
+    /// UnlockTrainingEffect tarafından çağrılır. Bilim adamı eğitim sistemini açar.
     /// </summary>
     public void UnlockTraining(float coefficient, float baseSweetSpot, float sweetSpotGrowthRate)
     {
@@ -270,32 +270,50 @@ public class SkillTreeManager : MonoBehaviour
         trainingCoefficient = coefficient;
         trainingBaseSweetSpot = baseSweetSpot;
         trainingSweetSpotGrowthRate = sweetSpotGrowthRate;
-        trainingLevel = 0f;
-        totalInvested = 0f;
-        trainingUnlockTime = Time.time;
         trainingUnlocked = true;
 
         OnTrainingUnlocked?.Invoke();
     }
 
     /// <summary>
-    /// UI bu metodu çağırır. Belirtilen miktar kadar wealth yatırır.
-    /// Verimlilik çan eğrisiyle hesaplanır: ideal noktaya yakın yatırımlar en verimli.
-    /// İdeal nokta zamanla büyür — oyuncuyu zaman içinde yatırım yapmaya teşvik eder.
+    /// UI bu metodu çağırır. Yeni bir bilim adamı eğitimine başlar.
+    /// Dönen değer bilim adamının index'idir.
     /// </summary>
-    public bool InvestInTraining(float amount)
+    public int StartScientistTraining(ScientistData data)
+    {
+        if (!trainingUnlocked) return -1;
+        if (data == null) return -1;
+
+        ScientistTraining scientist = new ScientistTraining(data, Time.time);
+        scientists.Add(scientist);
+
+        int index = scientists.Count - 1;
+        OnScientistStarted?.Invoke(index);
+        return index;
+    }
+
+    /// <summary>
+    /// UI bu metodu çağırır. Belirtilen bilim adamına wealth yatırır.
+    /// Verimlilik çan eğrisiyle hesaplanır: ideal noktaya yakın yatırımlar en verimli.
+    /// İdeal nokta, o bilim adamının eğitim başlangıcından itibaren zamanla büyür.
+    /// </summary>
+    public bool InvestInScientist(int scientistIndex, float amount)
     {
         if (!trainingUnlocked) return false;
+        if (scientistIndex < 0 || scientistIndex >= scientists.Count) return false;
         if (amount <= 0f) return false;
         if (GameStatManager.Instance == null) return false;
         if (!GameStatManager.Instance.HasEnoughWealth(amount)) return false;
 
-        //ideal noktayı hesapla (zamanla büyür)
-        float elapsed = Time.time - trainingUnlockTime;
+        ScientistTraining scientist = scientists[scientistIndex];
+        if (scientist.isCompleted) return false;
+
+        //bu bilim adamının kendi zamanlayıcısından ideal noktayı hesapla
+        float elapsed = Time.time - scientist.startTime;
         float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
 
         //çan eğrisi: x * e^(1-x) — x=1'de zirve, altında ve üstünde düşer
-        float newTotal = totalInvested + amount;
+        float newTotal = scientist.totalInvested + amount;
         float x = newTotal / sweetSpot;
         float efficiency = x * Mathf.Exp(1f - x);
 
@@ -303,26 +321,51 @@ public class SkillTreeManager : MonoBehaviour
         float points = amount * trainingCoefficient * efficiency;
 
         GameStatManager.Instance.TrySpendWealth(amount);
-        totalInvested = newTotal;
-        trainingLevel += points;
+        scientist.totalInvested = newTotal;
+        scientist.level += points;
 
-        OnTrainingLevelChanged?.Invoke(trainingLevel);
+        //tamamlanma kontrolü
+        if (!scientist.isCompleted && scientist.level >= scientist.data.completionLevel)
+        {
+            scientist.isCompleted = true;
+            OnScientistCompleted?.Invoke(scientistIndex);
+        }
+
+        OnScientistLevelChanged?.Invoke(scientistIndex, scientist.level);
         return true;
     }
 
     /// <summary>
-    /// Belirli bir miktar yatırılsa ne kadar puan kazanılacağını hesaplar (UI önizleme için).
+    /// Belirli bir bilim adamına belirli miktar yatırılsa kaç puan kazanılacağını hesaplar (UI önizleme).
     /// </summary>
-    public float PreviewTrainingInvestment(float amount)
+    public float PreviewScientistInvestment(int scientistIndex, float amount)
     {
         if (!trainingUnlocked || amount <= 0f) return 0f;
+        if (scientistIndex < 0 || scientistIndex >= scientists.Count) return 0f;
 
-        float elapsed = Time.time - trainingUnlockTime;
+        ScientistTraining scientist = scientists[scientistIndex];
+        if (scientist.isCompleted) return 0f;
+
+        float elapsed = Time.time - scientist.startTime;
         float sweetSpot = trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
-        float x = (totalInvested + amount) / sweetSpot;
+        float x = (scientist.totalInvested + amount) / sweetSpot;
         float efficiency = x * Mathf.Exp(1f - x);
 
         return amount * trainingCoefficient * efficiency;
+    }
+
+    /// <summary>
+    /// OtherPrerequisite flags kontrolü. Her flag için ilgili koşulu doğrular.
+    /// </summary>
+    private bool CheckOtherPrerequisites(OtherPrerequisite flags)
+    {
+        if ((flags & OtherPrerequisite.ThreeScientistsTrained) != 0)
+        {
+            if (GetCompletedScientistCount() < 3)
+                return false;
+        }
+
+        return true;
     }
 
     // ==================== EĞİTİM GETTER'LARI ====================
@@ -332,20 +375,36 @@ public class SkillTreeManager : MonoBehaviour
         return trainingUnlocked;
     }
 
-    public float GetTrainingLevel()
+    public int GetScientistCount()
     {
-        return trainingLevel;
+        return scientists.Count;
     }
 
-    public float GetTotalInvested()
+    public int GetCompletedScientistCount()
     {
-        return totalInvested;
+        int count = 0;
+        foreach (ScientistTraining s in scientists)
+        {
+            if (s.isCompleted) count++;
+        }
+        return count;
     }
 
-    public float GetCurrentSweetSpot()
+    public ScientistTraining GetScientist(int index)
     {
-        if (!trainingUnlocked) return 0f;
-        float elapsed = Time.time - trainingUnlockTime;
+        if (index < 0 || index >= scientists.Count) return null;
+        return scientists[index];
+    }
+
+    public List<ScientistTraining> GetAllScientists()
+    {
+        return new List<ScientistTraining>(scientists);
+    }
+
+    public float GetScientistSweetSpot(int scientistIndex)
+    {
+        if (scientistIndex < 0 || scientistIndex >= scientists.Count) return 0f;
+        float elapsed = Time.time - scientists[scientistIndex].startTime;
         return trainingBaseSweetSpot + trainingSweetSpotGrowthRate * elapsed;
     }
 
