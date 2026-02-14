@@ -17,12 +17,7 @@ public class SkillTreeManager : MonoBehaviour
     private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
     //passive income — direkt gelir (skill açılınca akan, zamanla azalan gelir)
-    [Header("Direkt Gelir Azalma Ayarları (% kalan)")]
-    [Range(0, 100)] public float decayAt1Min = 95f;  //1 dakika sonra başlangıcın %kaçı kalmış
-    [Range(0, 100)] public float decayAt2Min = 85f;  //2 dakika sonra
-    [Range(0, 100)] public float decayAt3Min = 60f;  //3 dakika sonra
-    [Range(0, 100)] public float decayAt4Min = 25f;  //4 dakika sonra
-    [Range(0, 100)] public float decayAt5Min = 5f;   //5 dakika sonra (sonrası oyun hesaplar)
+    //decay eğrisi her kaynak için ayrı tutulur (effect üzerinden gelir)
     private List<DirectIncomeSource> directIncomeSources = new List<DirectIncomeSource>();
 
     //training — bilim adamı eğitim sistemi
@@ -100,7 +95,7 @@ public class SkillTreeManager : MonoBehaviour
         {
             DirectIncomeSource source = directIncomeSources[i];
             float elapsed = Time.time - source.startTime;
-            float multiplier = GetDecayMultiplier(elapsed);
+            float multiplier = GetDecayMultiplier(elapsed, source);
 
             //süresi doldu — listeden çıkar
             if (multiplier <= 0f)
@@ -116,23 +111,23 @@ public class SkillTreeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Inspector'daki yüzde değerlerinden decay çarpanını hesaplar.
+    /// Kaynağın kendi decay eğrisinden çarpanı hesaplar.
     /// 0-5dk arası: keypoint'ler arası linear interpolation.
     /// 5dk sonrası: son segmentin eğimiyle sıfıra kadar devam eder.
     /// </summary>
-    private float GetDecayMultiplier(float elapsedSeconds)
+    private float GetDecayMultiplier(float elapsedSeconds, DirectIncomeSource source)
     {
         float minutes = elapsedSeconds / 60f;
 
         if (minutes <= 0f) return 1f;
 
-        //keypoint'ler: dakika 0 = %100, dakika 1-5 = Inspector değerleri
+        //keypoint'ler: dakika 0 = %100, dakika 1-5 = kaynağın kendi değerleri
         float k0 = 100f;
-        float k1 = decayAt1Min;
-        float k2 = decayAt2Min;
-        float k3 = decayAt3Min;
-        float k4 = decayAt4Min;
-        float k5 = decayAt5Min;
+        float k1 = source.decayAt1Min;
+        float k2 = source.decayAt2Min;
+        float k3 = source.decayAt3Min;
+        float k4 = source.decayAt4Min;
+        float k5 = source.decayAt5Min;
 
         float value;
 
@@ -324,11 +319,16 @@ public class SkillTreeManager : MonoBehaviour
 
     /// <summary>
     /// DirectPassiveIncomeEffect tarafından çağrılır. Yeni bir gelir kaynağı ekler.
-    /// Gelir zamanla azalır (decay eğrisi).
+    /// Decay eğrisi effect'ten gelir, her kaynak kendi eğrisini taşır.
     /// </summary>
-    public void AddDirectPassiveIncome(float incomePerSecond)
+    public void AddDirectPassiveIncome(float incomePerSecond,
+        float decayAt1Min, float decayAt2Min, float decayAt3Min,
+        float decayAt4Min, float decayAt5Min)
     {
-        directIncomeSources.Add(new DirectIncomeSource(incomePerSecond, Time.time));
+        directIncomeSources.Add(new DirectIncomeSource(
+            incomePerSecond, Time.time,
+            decayAt1Min, decayAt2Min, decayAt3Min, decayAt4Min, decayAt5Min
+        ));
     }
 
     /// <summary>
@@ -340,7 +340,7 @@ public class SkillTreeManager : MonoBehaviour
         for (int i = 0; i < directIncomeSources.Count; i++)
         {
             float elapsed = Time.time - directIncomeSources[i].startTime;
-            float multiplier = GetDecayMultiplier(elapsed);
+            float multiplier = GetDecayMultiplier(elapsed, directIncomeSources[i]);
             if (multiplier <= 0f) continue;
             total += directIncomeSources[i].incomePerSecond * multiplier;
         }
@@ -550,16 +550,28 @@ public class SkillTreeManager : MonoBehaviour
 }
 
 /// <summary>
-/// Skill'den gelen direkt gelir kaynağı. Zamanla decay uygulanır.
+/// Skill'den gelen direkt gelir kaynağı. Her kaynak kendi decay eğrisini taşır.
 /// </summary>
 public class DirectIncomeSource
 {
     public float incomePerSecond;
     public float startTime;
+    public float decayAt1Min;
+    public float decayAt2Min;
+    public float decayAt3Min;
+    public float decayAt4Min;
+    public float decayAt5Min;
 
-    public DirectIncomeSource(float incomePerSecond, float startTime)
+    public DirectIncomeSource(float incomePerSecond, float startTime,
+        float decayAt1Min, float decayAt2Min, float decayAt3Min,
+        float decayAt4Min, float decayAt5Min)
     {
         this.incomePerSecond = incomePerSecond;
         this.startTime = startTime;
+        this.decayAt1Min = decayAt1Min;
+        this.decayAt2Min = decayAt2Min;
+        this.decayAt3Min = decayAt3Min;
+        this.decayAt4Min = decayAt4Min;
+        this.decayAt5Min = decayAt5Min;
     }
 }

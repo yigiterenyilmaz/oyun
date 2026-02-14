@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
 /// <summary>
 /// Skill ve Event editorlerinde effect listesi çizmek için ortak yardımcı sınıf.
+/// [SerializeReference] ile PropertyField düzgün çalışmadığı için reflection ile çizim yapılır.
 /// </summary>
 public static class SkillEffectDrawer
 {
@@ -64,19 +67,19 @@ public static class SkillEffectDrawer
             }
             EditorGUILayout.EndHorizontal();
 
-            // Effect alanlarını çiz
+            // Effect alanlarını reflection ile çiz
+            // Not: reflection ile doğrudan obje üzerinde değişiklik yapıyoruz,
+            // SerializedProperty sistemi bypass ediliyor. SkillEditor tarafında
+            // ApplyModifiedProperties/Update sıralaması buna göre ayarlanmalı.
             if (element.managedReferenceValue != null)
             {
                 EditorGUI.indentLevel++;
-                var iter = element.Copy();
-                var end = element.GetEndProperty();
-                if (iter.NextVisible(true))
+                var obj = element.managedReferenceValue;
+                bool changed = DrawFieldsWithReflection(obj);
+                if (changed)
                 {
-                    do
-                    {
-                        EditorGUILayout.PropertyField(iter, true);
-                    }
-                    while (iter.NextVisible(false) && !SerializedProperty.EqualContents(iter, end));
+                    Undo.RecordObject(listProperty.serializedObject.targetObject, "Modify Effect");
+                    EditorUtility.SetDirty(listProperty.serializedObject.targetObject);
                 }
                 EditorGUI.indentLevel--;
             }
@@ -103,5 +106,68 @@ public static class SkillEffectDrawer
             }
             menu.ShowAsContext();
         }
+    }
+
+    /// <summary>
+    /// Bir objenin tüm public instance alanlarını reflection ile çizer.
+    /// SerializedProperty'ye bağımlı olmadan doğrudan okuma/yazma yapar.
+    /// </summary>
+    private static bool DrawFieldsWithReflection(object obj)
+    {
+        bool changed = false;
+        var fields = obj.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance);
+
+        foreach (var field in fields)
+        {
+            string label = ObjectNames.NicifyVariableName(field.Name);
+            var fieldType = field.FieldType;
+            object value = field.GetValue(obj);
+
+            EditorGUI.BeginChangeCheck();
+
+            if (fieldType == typeof(float))
+            {
+                float newVal = EditorGUILayout.FloatField(label, (float)value);
+                if (EditorGUI.EndChangeCheck()) { field.SetValue(obj, newVal); changed = true; }
+            }
+            else if (fieldType == typeof(int))
+            {
+                int newVal = EditorGUILayout.IntField(label, (int)value);
+                if (EditorGUI.EndChangeCheck()) { field.SetValue(obj, newVal); changed = true; }
+            }
+            else if (fieldType == typeof(string))
+            {
+                string newVal = EditorGUILayout.TextField(label, (string)value ?? "");
+                if (EditorGUI.EndChangeCheck()) { field.SetValue(obj, newVal); changed = true; }
+            }
+            else if (fieldType == typeof(bool))
+            {
+                bool newVal = EditorGUILayout.Toggle(label, (bool)value);
+                if (EditorGUI.EndChangeCheck()) { field.SetValue(obj, newVal); changed = true; }
+            }
+            else if (fieldType.IsEnum)
+            {
+                Enum newVal = EditorGUILayout.EnumPopup(label, (Enum)value);
+                if (EditorGUI.EndChangeCheck()) { field.SetValue(obj, newVal); changed = true; }
+            }
+            else if (typeof(UnityEngine.Object).IsAssignableFrom(fieldType))
+            {
+                var newVal = EditorGUILayout.ObjectField(label, (UnityEngine.Object)value, fieldType, false);
+                if (EditorGUI.EndChangeCheck()) { field.SetValue(obj, newVal); changed = true; }
+            }
+            else if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                //List alanları için SerializedProperty fallback kullan
+                EditorGUI.EndChangeCheck();
+                EditorGUILayout.LabelField(label, "(Liste — Inspector'dan ayarlayın)");
+            }
+            else
+            {
+                EditorGUI.EndChangeCheck();
+                EditorGUILayout.LabelField(label, fieldType.Name);
+            }
+        }
+
+        return changed;
     }
 }

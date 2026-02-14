@@ -21,9 +21,15 @@ public class SkillEditor : Editor
             true
         );
 
+        // Effects öncesi SP değişikliklerini uygula (reflection ile çakışmasın)
+        serializedObject.ApplyModifiedProperties();
+
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Effects", EditorStyles.boldLabel);
         SkillEffectDrawer.DrawEffectList(serializedObject.FindProperty("effects"));
+
+        // Effects sonrası reflection değişikliklerini SP'ye yansıt
+        serializedObject.Update();
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Diğer Ön Koşullar", EditorStyles.boldLabel);

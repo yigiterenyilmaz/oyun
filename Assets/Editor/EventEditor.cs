@@ -65,9 +65,15 @@ public class EventEditor : Editor
 
                 EditorGUILayout.PropertyField(choice.FindPropertyRelative("text"));
 
+                // Effects öncesi SP değişikliklerini uygula
+                serializedObject.ApplyModifiedProperties();
+
                 // Effects - dropdown ile
                 EditorGUILayout.Space(5);
                 SkillEffectDrawer.DrawEffectList(choice.FindPropertyRelative("effects"));
+
+                // Effects sonrası reflection değişikliklerini SP'ye yansıt
+                serializedObject.Update();
 
                 // Feed Override
                 EditorGUILayout.Space(5);
