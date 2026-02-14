@@ -49,11 +49,13 @@ public class MapGenerator : MonoBehaviour
     public Color biome3Color = new Color(0.4f, 0.4f, 0.45f);  // Mountains (gray)
     public Color biome4Color = new Color(0.3f, 0.7f, 0.5f);   // Plains (light green)
 
-    [Header("Biome Ratios (will be normalized)")]
-    [Range(0f, 1f)] public float biome1Ratio = 0.3f;  // Forest
-    [Range(0f, 1f)] public float biome2Ratio = 0.2f;  // Desert
-    [Range(0f, 1f)] public float biome3Ratio = 0.2f;  // Mountains
-    [Range(0f, 1f)] public float biome4Ratio = 0.3f;  // Plains
+    [Header("Biome Spawn Settings")]
+    [Range(0f, 1f)] public float biome2MaxRatio = 0.2f;  // Desert - spawns 0% to 20%
+    [Range(0f, 1f)] public float biome3MaxRatio = 0.2f;  // Mountains - spawns 0% to 20%
+    [Range(0f, 1f)] public float biome4MaxRatio = 0.3f;  // Plains - spawns 0% to 30%
+
+    [Header("Spawn Threshold")]
+    [Range(0f, 0.2f)] public float minSpawnThreshold = 0.03f;  // Below this, biome won't spawn
 
     // Public getters for actual ratios (for skill system)
     public float ForestRatio { get; private set; }
@@ -439,7 +441,6 @@ public class MapGenerator : MonoBehaviour
     totalLandTiles = 0;
     List<Vector2Int> landTiles = new List<Vector2Int>();
     
-    // 1. Map out all land
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
             if (landMap[x, y]) {
@@ -451,76 +452,114 @@ public class MapGenerator : MonoBehaviour
 
     if (totalLandTiles == 0) return;
 
-    // 2. Calculate the "Power" of the secondary biomes
-    float totalRatio = biome1Ratio + biome2Ratio + biome3Ratio + biome4Ratio;
-    float b1Normalized = biome1Ratio / totalRatio;
-    
-    // This determines how far Biomes 2, 3, and 4 "spread" over Biome 1
-    // If b1 is 0.8, spread is small. If b1 is 0.1, spread is huge.
-    float secondarySpread = (1f - b1Normalized); 
-    float influenceRange = (width * 0.6f) * secondarySpread; 
+    // Step 1: Roll random ratios for secondary biomes (2, 3, 4)
+    float[] maxRatios = { biome2MaxRatio, biome3MaxRatio, biome4MaxRatio };
+    float[] rolledRatios = new float[3];
+    bool[] biomeActive = new bool[3];
 
-    // 3. Place Seeds for the secondary biomes
-    List<Vector3> invasionSeeds = new List<Vector3>();
-    int clustersPerBiome = 3; 
-
-    for (int bType = 2; bType <= 4; bType++) {
-        for (int i = 0; i < clustersPerBiome; i++) {
-            Vector2Int pos = landTiles[Random.Range(0, landTiles.Count)];
-            invasionSeeds.Add(new Vector3(pos.x, pos.y, bType));
+    for (int i = 0; i < 3; i++) {
+        rolledRatios[i] = Random.Range(0f, maxRatios[i]);
+        
+        if (rolledRatios[i] < minSpawnThreshold) {
+            rolledRatios[i] = 0f;
+            biomeActive[i] = false;
+        } else {
+            biomeActive[i] = true;
         }
     }
 
-    // 4. Domain Warping for Organic Borders
+    // Step 2: Calculate biome 1 (background) ratio as remainder
+    float totalSecondary = 0f;
+    for (int i = 0; i < 3; i++) {
+        totalSecondary += rolledRatios[i];
+    }
+    float biome1Ratio = Mathf.Max(0f, 1f - totalSecondary);
+
+    // Step 3: Build final normalized ratios (biome 1 is always active)
+    float[] finalRatios = new float[4];
+    finalRatios[0] = biome1Ratio;
+    for (int i = 0; i < 3; i++) {
+        finalRatios[i + 1] = rolledRatios[i];
+    }
+
+    // Normalize to ensure they sum to 1
+    float total = 0f;
+    for (int i = 0; i < 4; i++) {
+        total += finalRatios[i];
+    }
+    for (int i = 0; i < 4; i++) {
+        finalRatios[i] = total > 0 ? finalRatios[i] / total : 0f;
+    }
+
+    // Step 4: Place seeds for all active biomes
+    List<Vector3> biomeSeeds = new List<Vector3>();
+    int totalSeeds = 12;
+
+    // Biome 1 (background) always gets seeds
+    int biome1Seeds = Mathf.Max(1, Mathf.RoundToInt(totalSeeds * finalRatios[0]));
+    for (int i = 0; i < biome1Seeds; i++) {
+        Vector2Int pos = landTiles[Random.Range(0, landTiles.Count)];
+        biomeSeeds.Add(new Vector3(pos.x, pos.y, 1));
+    }
+
+    // Secondary biomes (2, 3, 4) only if active
+    for (int bType = 2; bType <= 4; bType++) {
+        if (!biomeActive[bType - 2]) continue;
+        
+        int seedCount = Mathf.Max(1, Mathf.RoundToInt(totalSeeds * finalRatios[bType - 1]));
+        for (int i = 0; i < seedCount; i++) {
+            Vector2Int pos = landTiles[Random.Range(0, landTiles.Count)];
+            biomeSeeds.Add(new Vector3(pos.x, pos.y, bType));
+        }
+    }
+
+    // Step 5: Domain warping for organic borders
     float warpStrength = 25f;
     float warpScale = 0.05f;
     float noiseOffset = Random.Range(0f, 1000f);
 
     for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) { // The missing loop that caused your error
+        for (int y = 0; y < height; y++) {
             if (!landMap[x, y]) {
                 biomeMap[x, y] = 0;
                 continue;
             }
 
-            // Distort the position for wavy borders
             float nx = (Mathf.PerlinNoise(x * warpScale + noiseOffset, y * warpScale) - 0.5f) * warpStrength;
             float ny = (Mathf.PerlinNoise(y * warpScale, x * warpScale + noiseOffset) - 0.5f) * warpStrength;
             float warpedX = x + nx;
             float warpedY = y + ny;
 
             float minDist = float.MaxValue;
-            int nearestInvasionBiome = 1;
+            int nearestBiome = 1; // Default to background
 
-            // Find closest secondary biome seed
-            foreach (var seed in invasionSeeds) {
+            foreach (var seed in biomeSeeds) {
                 float d = Vector2.Distance(new Vector2(warpedX, warpedY), new Vector2(seed.x, seed.y));
                 if (d < minDist) {
                     minDist = d;
-                    nearestInvasionBiome = (int)seed.z;
+                    nearestBiome = (int)seed.z;
                 }
             }
 
-            // If we are close enough to a secondary seed, use it. 
-            // Otherwise, stay as the background (Biome 1).
-            if (minDist < influenceRange) {
-                biomeMap[x, y] = nearestInvasionBiome;
-            } else {
-                biomeMap[x, y] = 1;
-            }
+            biomeMap[x, y] = nearestBiome;
         }
     }
 
-    // 5. Update counts (Fixed loops)
+    // Step 6: Update counts
     for (int i = 0; i < 4; i++) biomeTileCounts[i] = 0;
     for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) { // Fixed: added nested y loop
+        for (int y = 0; y < height; y++) {
             int b = biomeMap[x, y];
             if (b >= 1 && b <= 4) {
                 biomeTileCounts[b - 1]++;
             }
         }
     }
+
+    Debug.Log($"Biomes - Forest(BG): {(finalRatios[0]*100):F1}%, " +
+              $"Desert: {biomeActive[0]} ({(finalRatios[1]*100):F1}%), " +
+              $"Mountains: {biomeActive[1]} ({(finalRatios[2]*100):F1}%), " +
+              $"Plains: {biomeActive[2]} ({(finalRatios[3]*100):F1}%)");
 }
     void CalculateBiomeRatios()
     {
