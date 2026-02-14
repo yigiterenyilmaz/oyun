@@ -9,8 +9,9 @@ public class PassiveIncomeProduct : ScriptableObject
     public Sprite icon;
 
     public int cost; //satın alma fiyatı
+    public bool isSellable = true; //geri satılabilir mi
     [Range(0f, 0.99f)] public float sellRatio = 0.6f; //satış fiyatı = cost * sellRatio
 
-    public float minIncomePerTick; //her tick'te kazanılacak minimum para
-    public float maxIncomePerTick; //her tick'te kazanılacak maximum para
+    public float minIncomePerSecond; //birim başına saniyede minimum gelir
+    public float maxIncomePerSecond; //birim başına saniyede maksimum gelir
 }

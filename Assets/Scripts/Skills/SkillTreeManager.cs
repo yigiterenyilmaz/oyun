@@ -14,11 +14,19 @@ public class SkillTreeManager : MonoBehaviour
     private HashSet<PassiveIncomeProduct> unlockedProducts = new HashSet<PassiveIncomeProduct>();
     private Dictionary<PassiveIncomeProduct, int> ownedProducts = new Dictionary<PassiveIncomeProduct, int>();
     private float passiveIncomeTimer = 0f;
-    private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
+    private const float PASSIVE_INCOME_INTERVAL = 10f; //kaç saniyede bir gelir eklenir
+    private float investmentTickTimer = 0f;
+    private const float INVESTMENT_TICK_INTERVAL = 2f; //yatırım fiyat güncelleme aralığı (saniye)
 
     //passive income — direkt gelir (skill açılınca akan, zamanla azalan gelir)
     //decay eğrisi her kaynak için ayrı tutulur (effect üzerinden gelir)
     private List<DirectIncomeSource> directIncomeSources = new List<DirectIncomeSource>();
+
+    //investment — yatırım sistemi (al, değeri artsın, sat)
+    private HashSet<InvestmentProduct> unlockedInvestments = new HashSet<InvestmentProduct>();
+    private List<OwnedInvestment> ownedInvestments = new List<OwnedInvestment>();
+    private Dictionary<InvestmentProduct, float> marketPricePercents = new Dictionary<InvestmentProduct, float>(); //piyasa salınım yüzdesi
+    private bool marketOscillationPaused = false; //ekran açıkken salınım durur
 
     //training — bilim adamı eğitim sistemi
     private bool trainingUnlocked = false;
@@ -32,6 +40,13 @@ public class SkillTreeManager : MonoBehaviour
     public static event Action<PassiveIncomeProduct, int> OnProductBought; //ürün, yeni toplam adet
     public static event Action<PassiveIncomeProduct, int> OnProductSold; //ürün, yeni toplam adet
     public static event Action<float> OnPassiveIncomeTick; //bu tick'te kazanılan toplam gelir
+
+    //events — investment
+    public static event Action<List<InvestmentProduct>> OnInvestmentsUnlocked; //yeni yatırımlar açıldı
+    public static event Action<int> OnInvestmentBought; //yatırım index'i
+    public static event Action<int, float> OnInvestmentSold; //yatırım index'i, kâr/zarar
+    public static event Action<int, float> OnInvestmentValueChanged; //yatırım index'i, yeni değer
+    public static event Action<InvestmentProduct, float> OnMarketPriceChanged; //product, yeni piyasa fiyatı
 
     //events — training
     public static event Action OnTrainingUnlocked; //eğitim sistemi açıldı
@@ -51,15 +66,15 @@ public class SkillTreeManager : MonoBehaviour
 
     private void Update()
     {
-        //pasif geliri 5 saniyede bir uygula (ürün geliri + direkt gelir)
-        bool hasIncome = ownedProducts.Count > 0 || directIncomeSources.Count > 0;
-        if (hasIncome && GameStatManager.Instance != null)
+        passiveIncomeTimer += Time.deltaTime;
+        if (passiveIncomeTimer >= PASSIVE_INCOME_INTERVAL)
         {
-            passiveIncomeTimer += Time.deltaTime;
-            if (passiveIncomeTimer >= PASSIVE_INCOME_INTERVAL)
-            {
-                passiveIncomeTimer = 0f;
+            passiveIncomeTimer = 0f;
 
+            //pasif gelir (ürün + direkt)
+            bool hasIncome = ownedProducts.Count > 0 || directIncomeSources.Count > 0;
+            if (hasIncome && GameStatManager.Instance != null)
+            {
                 float totalIncome = 0f;
 
                 //ürün tabanlı gelir
@@ -67,7 +82,7 @@ public class SkillTreeManager : MonoBehaviour
                 {
                     PassiveIncomeProduct product = kvp.Key;
                     int count = kvp.Value;
-                    float incomePerUnit = UnityEngine.Random.Range(product.minIncomePerTick, product.maxIncomePerTick);
+                    float incomePerUnit = UnityEngine.Random.Range(product.minIncomePerSecond, product.maxIncomePerSecond);
                     totalIncome += incomePerUnit * count;
                 }
 
@@ -79,6 +94,42 @@ public class SkillTreeManager : MonoBehaviour
 
                 GameStatManager.Instance.AddWealth(totalIncome);
                 OnPassiveIncomeTick?.Invoke(totalIncome);
+            }
+
+        }
+
+        //yatırım tick'i (sahip olunan + piyasa salınımı)
+        investmentTickTimer += Time.deltaTime;
+        if (investmentTickTimer >= INVESTMENT_TICK_INTERVAL)
+        {
+            investmentTickTimer = 0f;
+
+            //sahip olunan yatırımların fiyat simülasyonu
+            for (int i = 0; i < ownedInvestments.Count; i++)
+            {
+                UpdateInvestmentPrice(ownedInvestments[i]);
+                OnInvestmentValueChanged?.Invoke(i, ownedInvestments[i].currentValue);
+            }
+
+            //piyasa fiyat salınımı (ekran açık değilse)
+            if (!marketOscillationPaused)
+            {
+                foreach (InvestmentProduct product in unlockedInvestments)
+                {
+                    if (!marketPricePercents.ContainsKey(product)) continue;
+
+                    float mp = marketPricePercents[product];
+                    float range = product.idleOscillationMax - product.idleOscillationMin;
+                    float center = (product.idleOscillationMax + product.idleOscillationMin) / 2f;
+                    float noise = UnityEngine.Random.Range(-range * 0.1f, range * 0.1f);
+                    float pullToCenter = (center - mp) * 0.05f;
+
+                    mp += noise + pullToCenter;
+                    mp = Mathf.Clamp(mp, product.idleOscillationMin, product.idleOscillationMax);
+                    marketPricePercents[product] = mp;
+
+                    OnMarketPriceChanged?.Invoke(product, product.cost * (1f + mp / 100f));
+                }
             }
         }
     }
@@ -150,6 +201,63 @@ public class SkillTreeManager : MonoBehaviour
         }
 
         return Mathf.Max(0f, value / 100f);
+    }
+
+    /// <summary>
+    /// Tek bir yatırımın fiyatını simüle eder.
+    /// Potansiyele ulaşana kadar zigzag hareket, sonra küçük salınım, timeout sonrası drift.
+    /// </summary>
+    private void UpdateInvestmentPrice(OwnedInvestment inv)
+    {
+        if (!inv.reachedPotential)
+        {
+            //potansiyele doğru zigzag hareket
+            float distanceToTarget = inv.targetPercent - inv.currentPercent;
+            float trendStep = distanceToTarget * 0.05f; //kalan mesafenin %5'i kadar çek
+            float noise = UnityEngine.Random.Range(-inv.product.volatility, inv.product.volatility);
+            inv.currentPercent += trendStep + noise;
+
+            //potansiyele ulaştı mı kontrol
+            bool reached = (inv.targetPercent >= 0f && inv.currentPercent >= inv.targetPercent) ||
+                           (inv.targetPercent < 0f && inv.currentPercent <= inv.targetPercent);
+
+            if (reached)
+            {
+                inv.reachedPotential = true;
+                inv.reachedPotentialTime = Time.time;
+                inv.currentPercent = inv.targetPercent;
+            }
+        }
+        else
+        {
+            //küçük salınımlar (potansiyel civarında)
+            float smallNoise = UnityEngine.Random.Range(
+                -inv.product.volatility * 0.3f,
+                inv.product.volatility * 0.3f
+            );
+
+            float timeSinceReached = Time.time - inv.reachedPotentialTime;
+
+            if (timeSinceReached > inv.product.postPotentialTimeout)
+            {
+                //drift fazı — potansiyelden sonra yön sapması
+                float driftPerTick = inv.product.postPotentialDrift * (INVESTMENT_TICK_INTERVAL / 60f);
+                inv.currentPercent += driftPerTick + smallNoise;
+            }
+            else
+            {
+                //potansiyel civarında küçük salınım (geri çekme kuvvetiyle)
+                float pullBack = (inv.targetPercent - inv.currentPercent) * 0.15f;
+                inv.currentPercent += pullBack + smallNoise;
+            }
+        }
+
+        //güncel değeri hesapla
+        inv.currentValue = inv.buyPrice * (1f + inv.currentPercent / 100f);
+
+        //değer sıfırın altına düşmesin
+        if (inv.currentValue < 0f)
+            inv.currentValue = 0f;
     }
 
     // ==================== SKİLL SİSTEMİ ====================
@@ -298,6 +406,7 @@ public class SkillTreeManager : MonoBehaviour
     public bool SellProduct(PassiveIncomeProduct product)
     {
         if (product == null) return false;
+        if (!product.isSellable) return false;
         if (!ownedProducts.ContainsKey(product) || ownedProducts[product] <= 0) return false;
 
         //satış fiyatı = cost * sellRatio
@@ -368,6 +477,120 @@ public class SkillTreeManager : MonoBehaviour
     public Dictionary<PassiveIncomeProduct, int> GetOwnedProducts()
     {
         return ownedProducts;
+    }
+
+    // ==================== YATIRIM SİSTEMİ ====================
+
+    /// <summary>
+    /// InvestmentEffect tarafından çağrılır. Yatırım ürünlerini satın alınabilir yapar.
+    /// </summary>
+    public void UnlockInvestments(List<InvestmentProduct> products)
+    {
+        List<InvestmentProduct> newlyUnlocked = new List<InvestmentProduct>();
+
+        foreach (InvestmentProduct product in products)
+        {
+            if (product != null && unlockedInvestments.Add(product))
+            {
+                newlyUnlocked.Add(product);
+                marketPricePercents[product] = 0f; //piyasa fiyatını başlat
+            }
+        }
+
+        if (newlyUnlocked.Count > 0)
+            OnInvestmentsUnlocked?.Invoke(newlyUnlocked);
+    }
+
+    /// <summary>
+    /// UI bu metodu çağırır. Oyuncu istediği miktarı girer, o anki piyasa fiyatına bölünür.
+    /// Küsüratlı adet olabilir (yatırım sonuçta).
+    /// </summary>
+    public int BuyInvestment(InvestmentProduct product, float investAmount)
+    {
+        if (product == null) return -1;
+        if (investAmount <= 0f) return -1;
+        if (!unlockedInvestments.Contains(product)) return -1;
+        if (GameStatManager.Instance == null) return -1;
+        if (!GameStatManager.Instance.HasEnoughWealth(investAmount)) return -1;
+
+        GameStatManager.Instance.TrySpendWealth(investAmount);
+
+        float marketPrice = GetMarketPrice(product);
+        float quantity = investAmount / marketPrice;
+
+        OwnedInvestment inv = new OwnedInvestment(product, investAmount, quantity, Time.time);
+        ownedInvestments.Add(inv);
+
+        int index = ownedInvestments.Count - 1;
+        OnInvestmentBought?.Invoke(index);
+        return index;
+    }
+
+    /// <summary>
+    /// UI bu metodu çağırır. Yatırımı satar, güncel değeri cüzdana ekler.
+    /// Kâr/zarar = currentValue - buyPrice
+    /// </summary>
+    public bool SellInvestment(int index)
+    {
+        if (index < 0 || index >= ownedInvestments.Count) return false;
+        if (GameStatManager.Instance == null) return false;
+
+        OwnedInvestment inv = ownedInvestments[index];
+        float profit = inv.currentValue - inv.buyPrice;
+
+        GameStatManager.Instance.AddWealth(inv.currentValue);
+        ownedInvestments.RemoveAt(index);
+
+        OnInvestmentSold?.Invoke(index, profit);
+        return true;
+    }
+
+    // ==================== YATIRIM GETTER'LARI ====================
+
+    public bool IsInvestmentUnlocked(InvestmentProduct product)
+    {
+        return unlockedInvestments.Contains(product);
+    }
+
+    public HashSet<InvestmentProduct> GetUnlockedInvestments()
+    {
+        return unlockedInvestments;
+    }
+
+    public List<OwnedInvestment> GetOwnedInvestments()
+    {
+        return ownedInvestments;
+    }
+
+    public OwnedInvestment GetInvestment(int index)
+    {
+        if (index < 0 || index >= ownedInvestments.Count) return null;
+        return ownedInvestments[index];
+    }
+
+    /// <summary>
+    /// O anki piyasa fiyatını döner (base cost + salınım yüzdesi).
+    /// </summary>
+    public float GetMarketPrice(InvestmentProduct product)
+    {
+        float percent = marketPricePercents.ContainsKey(product) ? marketPricePercents[product] : 0f;
+        return product.cost * (1f + percent / 100f);
+    }
+
+    /// <summary>
+    /// Piyasa salınımını duraklat (oyuncu ürün ekranını açtığında).
+    /// </summary>
+    public void PauseMarketOscillation()
+    {
+        marketOscillationPaused = true;
+    }
+
+    /// <summary>
+    /// Piyasa salınımını devam ettir (oyuncu ürün ekranını kapattığında).
+    /// </summary>
+    public void ResumeMarketOscillation()
+    {
+        marketOscillationPaused = false;
     }
 
     // ==================== EĞİTİM SİSTEMİ ====================
@@ -574,5 +797,42 @@ public class DirectIncomeSource
         this.decayAt3Min = decayAt3Min;
         this.decayAt4Min = decayAt4Min;
         this.decayAt5Min = decayAt5Min;
+    }
+}
+
+/// <summary>
+/// Sahip olunan yatırım. Değeri zamanla artar, satılınca kâr/zarar hesaplanır.
+/// </summary>
+public class OwnedInvestment
+{
+    public InvestmentProduct product;
+    public float buyPrice;       //toplam yatırılan miktar
+    public float quantity;       //satın alınan adet (küsüratlı olabilir)
+    public float currentValue;   //toplam güncel değer
+    public float purchaseTime;
+
+    //simülasyon state
+    public float targetPercent;        //hedef potansiyel (%, + kâr, - zarar)
+    public float currentPercent;       //şu anki yüzde değişim
+    public bool reachedPotential;      //potansiyeline ulaştı mı
+    public float reachedPotentialTime; //potansiyeline ulaşma zamanı
+
+    public OwnedInvestment(InvestmentProduct product, float investAmount, float quantity, float purchaseTime)
+    {
+        this.product = product;
+        this.buyPrice = investAmount;
+        this.quantity = quantity;
+        this.currentValue = investAmount;
+        this.purchaseTime = purchaseTime;
+        this.currentPercent = 0f;
+        this.reachedPotential = false;
+
+        //kâr mı zarar mı? profitChance olasılığına göre belirle
+        bool isProfit = UnityEngine.Random.value <= product.profitChance;
+
+        if (isProfit)
+            targetPercent = UnityEngine.Random.Range(0f, product.maxProfitPercent);
+        else
+            targetPercent = -UnityEngine.Random.Range(0f, product.maxLossPercent);
     }
 }
