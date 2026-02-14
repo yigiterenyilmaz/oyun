@@ -17,9 +17,12 @@ public class SkillTreeManager : MonoBehaviour
     private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
     //passive income — direkt gelir (skill açılınca akan, zamanla azalan gelir)
-    [Header("Direkt Gelir Azalma Ayarları")]
-    public float directIncomeDecayDuration = 300f; //gelirin sıfıra inme süresi (saniye)
-    public float directIncomeDecayExponent = 4f;   //azalma eğrisi keskinliği (>1: başta yavaş, sonda hızlı)
+    [Header("Direkt Gelir Azalma Ayarları (% kalan)")]
+    [Range(0, 100)] public float decayAt1Min = 95f;  //1 dakika sonra başlangıcın %kaçı kalmış
+    [Range(0, 100)] public float decayAt2Min = 85f;  //2 dakika sonra
+    [Range(0, 100)] public float decayAt3Min = 60f;  //3 dakika sonra
+    [Range(0, 100)] public float decayAt4Min = 25f;  //4 dakika sonra
+    [Range(0, 100)] public float decayAt5Min = 5f;   //5 dakika sonra (sonrası oyun hesaplar)
     private List<DirectIncomeSource> directIncomeSources = new List<DirectIncomeSource>();
 
     //training — bilim adamı eğitim sistemi
@@ -97,21 +100,60 @@ public class SkillTreeManager : MonoBehaviour
         {
             DirectIncomeSource source = directIncomeSources[i];
             float elapsed = Time.time - source.startTime;
-            float t = elapsed / directIncomeDecayDuration;
+            float multiplier = GetDecayMultiplier(elapsed);
 
             //süresi doldu — listeden çıkar
-            if (t >= 1f)
+            if (multiplier <= 0f)
             {
                 directIncomeSources.RemoveAt(i);
                 continue;
             }
 
-            //azalma eğrisi: başta yavaş, sonda hızlı (exponent > 1)
-            float multiplier = 1f - Mathf.Pow(t, directIncomeDecayExponent);
             total += source.incomePerSecond * multiplier;
         }
 
         return total;
+    }
+
+    /// <summary>
+    /// Inspector'daki yüzde değerlerinden decay çarpanını hesaplar.
+    /// 0-5dk arası: keypoint'ler arası linear interpolation.
+    /// 5dk sonrası: son segmentin eğimiyle sıfıra kadar devam eder.
+    /// </summary>
+    private float GetDecayMultiplier(float elapsedSeconds)
+    {
+        float minutes = elapsedSeconds / 60f;
+
+        if (minutes <= 0f) return 1f;
+
+        //keypoint'ler: dakika 0 = %100, dakika 1-5 = Inspector değerleri
+        float k0 = 100f;
+        float k1 = decayAt1Min;
+        float k2 = decayAt2Min;
+        float k3 = decayAt3Min;
+        float k4 = decayAt4Min;
+        float k5 = decayAt5Min;
+
+        float value;
+
+        if (minutes < 1f)
+            value = Mathf.Lerp(k0, k1, minutes);
+        else if (minutes < 2f)
+            value = Mathf.Lerp(k1, k2, minutes - 1f);
+        else if (minutes < 3f)
+            value = Mathf.Lerp(k2, k3, minutes - 2f);
+        else if (minutes < 4f)
+            value = Mathf.Lerp(k3, k4, minutes - 3f);
+        else if (minutes < 5f)
+            value = Mathf.Lerp(k4, k5, minutes - 4f);
+        else
+        {
+            //5dk sonrası: 4-5dk arasındaki eğimle devam et
+            float slopePerMinute = k5 - k4;
+            value = k5 + slopePerMinute * (minutes - 5f);
+        }
+
+        return Mathf.Max(0f, value / 100f);
     }
 
     // ==================== SKİLL SİSTEMİ ====================
@@ -298,9 +340,9 @@ public class SkillTreeManager : MonoBehaviour
         for (int i = 0; i < directIncomeSources.Count; i++)
         {
             float elapsed = Time.time - directIncomeSources[i].startTime;
-            float t = elapsed / directIncomeDecayDuration;
-            if (t >= 1f) continue;
-            total += directIncomeSources[i].incomePerSecond * (1f - Mathf.Pow(t, directIncomeDecayExponent));
+            float multiplier = GetDecayMultiplier(elapsed);
+            if (multiplier <= 0f) continue;
+            total += directIncomeSources[i].incomePerSecond * multiplier;
         }
         return total;
     }
