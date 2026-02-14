@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "SkillTree/PassiveIncomeProduct")]
+[CreateAssetMenu(menuName = "SkillTree/Products/PassiveIncomeProduct")]
 public class PassiveIncomeProduct : ScriptableObject
 {
     public string id;

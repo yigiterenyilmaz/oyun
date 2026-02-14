@@ -20,7 +20,7 @@ MonoBehaviour:
     it unlocks a minigame where you carry out gold smuggling operations. During the
     operation, you face unexpected conditions and must manage them to succeed.'
   icon: {fileID: 0}
-  cost: 115000
+  cost: 150000
   prerequisites:
   - {fileID: 11400000, guid: 86eef0c34e9163a49a710dbf760e0688, type: 2}
   effects:

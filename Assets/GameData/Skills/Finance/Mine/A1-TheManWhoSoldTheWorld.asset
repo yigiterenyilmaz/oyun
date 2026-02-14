@@ -21,13 +21,18 @@ MonoBehaviour:
   cost: 0
   prerequisites: []
   effects:
-  - rid: 2638472920323326020
+  - rid: 2638473098503127116
+  otherPrerequisites: 0
   blocksSkills: []
   references:
     version: 2
     RefIds:
-    - rid: 2638472920323326020
-      type: {class: PassiveIncomeEffect, ns: , asm: Assembly-CSharp}
+    - rid: 2638473098503127116
+      type: {class: DirectPassiveIncomeEffect, ns: , asm: Assembly-CSharp}
       data:
-        minIncomePerTick: 20
-        maxIncomePerTick: 30
+        incomePerSecond: 60
+        decayAt1Min: 90
+        decayAt2Min: 80
+        decayAt3Min: 58
+        decayAt4Min: 27
+        decayAt5Min: 10

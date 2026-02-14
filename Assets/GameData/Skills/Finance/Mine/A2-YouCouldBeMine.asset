@@ -24,13 +24,26 @@ MonoBehaviour:
   prerequisites:
   - {fileID: 11400000, guid: ddc981964cfe5874bab31b5d5bf98d06, type: 2}
   effects:
-  - rid: 2638472920323326019
+  - rid: 2638473098503127118
+  - rid: 2638473098503127119
+  otherPrerequisites: 0
   blocksSkills: []
   references:
     version: 2
     RefIds:
-    - rid: 2638472920323326019
+    - rid: 2638473098503127118
+      type: {class: DirectPassiveIncomeEffect, ns: , asm: Assembly-CSharp}
+      data:
+        incomePerSecond: 60
+        decayAt1Min: 60
+        decayAt2Min: 20
+        decayAt3Min: 0
+        decayAt4Min: 0
+        decayAt5Min: 0
+    - rid: 2638473098503127119
       type: {class: PassiveIncomeEffect, ns: , asm: Assembly-CSharp}
       data:
-        minIncomePerTick: 35
-        maxIncomePerTick: 45
+        products:
+        - {fileID: 11400000, guid: 68c6f26521949ad42ba5d591aa4cf9ca, type: 2}
+        - {fileID: 11400000, guid: 6fd0ac184ffb34c4caf742701982c226, type: 2}
+        - {fileID: 11400000, guid: cecde47e6e9356c43b10f5226991d1eb, type: 2}

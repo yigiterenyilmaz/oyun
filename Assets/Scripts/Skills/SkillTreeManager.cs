@@ -27,6 +27,8 @@ public class SkillTreeManager : MonoBehaviour
     private List<OwnedInvestment> ownedInvestments = new List<OwnedInvestment>();
     private Dictionary<InvestmentProduct, float> marketPricePercents = new Dictionary<InvestmentProduct, float>(); //piyasa salınım yüzdesi
     private bool marketOscillationPaused = false; //ekran açıkken salınım durur
+    private Dictionary<InvestmentProduct, bool> investmentAvailable = new Dictionary<InvestmentProduct, bool>(); //piyasada şu an bulunuyor mu
+    private Dictionary<InvestmentProduct, float> investmentPhaseEndTime = new Dictionary<InvestmentProduct, float>(); //mevcut fazın bitiş zamanı
 
     //training — bilim adamı eğitim sistemi
     private bool trainingUnlocked = false;
@@ -47,6 +49,7 @@ public class SkillTreeManager : MonoBehaviour
     public static event Action<int, float> OnInvestmentSold; //yatırım index'i, kâr/zarar
     public static event Action<int, float> OnInvestmentValueChanged; //yatırım index'i, yeni değer
     public static event Action<InvestmentProduct, float> OnMarketPriceChanged; //product, yeni piyasa fiyatı
+    public static event Action<InvestmentProduct, bool> OnInvestmentAvailabilityChanged; //product, available?
 
     //events — training
     public static event Action OnTrainingUnlocked; //eğitim sistemi açıldı
@@ -129,6 +132,40 @@ public class SkillTreeManager : MonoBehaviour
                     marketPricePercents[product] = mp;
 
                     OnMarketPriceChanged?.Invoke(product, product.cost * (1f + mp / 100f));
+                }
+            }
+
+            //piyasa erişilebilirlik faz geçişleri (ekran durumundan bağımsız çalışır)
+            foreach (InvestmentProduct product in unlockedInvestments)
+            {
+                if (!product.hasLimitedAvailability) continue;
+                if (!investmentPhaseEndTime.ContainsKey(product)) continue;
+
+                if (Time.time >= investmentPhaseEndTime[product])
+                {
+                    bool wasAvailable = investmentAvailable.ContainsKey(product) && investmentAvailable[product];
+
+                    if (wasAvailable)
+                    {
+                        //available → unavailable
+                        float duration = product.availabilityCycleDuration * (1f - product.availabilityChance);
+                        duration *= UnityEngine.Random.Range(0.7f, 1.3f);
+                        investmentAvailable[product] = false;
+                        investmentPhaseEndTime[product] = Time.time + duration;
+                    }
+                    else
+                    {
+                        //unavailable → available (min süre garantili)
+                        float duration = Mathf.Max(
+                            product.minAvailableDuration,
+                            product.availabilityCycleDuration * product.availabilityChance
+                        );
+                        duration *= UnityEngine.Random.Range(0.7f, 1.3f);
+                        investmentAvailable[product] = true;
+                        investmentPhaseEndTime[product] = Time.time + duration;
+                    }
+
+                    OnInvestmentAvailabilityChanged?.Invoke(product, investmentAvailable[product]);
                 }
             }
         }
@@ -494,6 +531,13 @@ public class SkillTreeManager : MonoBehaviour
             {
                 newlyUnlocked.Add(product);
                 marketPricePercents[product] = 0f; //piyasa fiyatını başlat
+
+                //availability başlat (limited ise unavailable başla, hemen phase check tetiklensin)
+                if (product.hasLimitedAvailability)
+                {
+                    investmentAvailable[product] = false;
+                    investmentPhaseEndTime[product] = Time.time;
+                }
             }
         }
 
@@ -513,9 +557,18 @@ public class SkillTreeManager : MonoBehaviour
         if (GameStatManager.Instance == null) return -1;
         if (!GameStatManager.Instance.HasEnoughWealth(investAmount)) return -1;
 
+        //piyasada bulunmuyorsa satın alınamaz
+        if (product.hasLimitedAvailability &&
+            investmentAvailable.ContainsKey(product) &&
+            !investmentAvailable[product])
+            return -1;
+
+        //en az 1 adet alabilecek kadar yatırım yapmalı
+        float marketPrice = GetMarketPrice(product);
+        if (investAmount < marketPrice) return -1;
+
         GameStatManager.Instance.TrySpendWealth(investAmount);
 
-        float marketPrice = GetMarketPrice(product);
         float quantity = investAmount / marketPrice;
 
         OwnedInvestment inv = new OwnedInvestment(product, investAmount, quantity, Time.time);
@@ -566,6 +619,15 @@ public class SkillTreeManager : MonoBehaviour
     {
         if (index < 0 || index >= ownedInvestments.Count) return null;
         return ownedInvestments[index];
+    }
+
+    /// <summary>
+    /// Ürün şu an piyasada alınabilir mi (limited availability kontrolü).
+    /// </summary>
+    public bool IsInvestmentAvailable(InvestmentProduct product)
+    {
+        if (!product.hasLimitedAvailability) return true;
+        return investmentAvailable.ContainsKey(product) && investmentAvailable[product];
     }
 
     /// <summary>

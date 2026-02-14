@@ -19,17 +19,12 @@ MonoBehaviour:
     You
     start making profit by buying and selling gold in local markets.'
   icon: {fileID: 0}
-  cost: 27500
+  cost: 50000
   prerequisites:
   - {fileID: 11400000, guid: 5872be6773f4c634ab0419a09488dccb, type: 2}
-  effects:
-  - rid: 2638472920323326021
+  effects: []
+  otherPrerequisites: 0
   blocksSkills: []
   references:
     version: 2
-    RefIds:
-    - rid: 2638472920323326021
-      type: {class: PassiveIncomeEffect, ns: , asm: Assembly-CSharp}
-      data:
-        minIncomePerTick: 90
-        maxIncomePerTick: 110
+    RefIds: []

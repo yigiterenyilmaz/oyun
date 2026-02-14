@@ -12,12 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e181ea621e39a2c4788fb100aae19979, type: 3}
   m_Name: GoldSystemEducation-Comprehensive
   m_EditorClassIdentifier: Assembly-CSharp::PassiveIncomeProduct
-  id: 
-  displayName: 
-  description: 
+  id: goldeducation03
+  displayName: A Very Comprehensive Gold System Education
+  description: "The Ultimate Gold-Silver System Masterclass is an ultra-comprehensive
+    training program covering every layer of the global gold ecosystem\u2014from
+    mining and central bank reserves to derivatives markets, macroeconomics, and
+    strategic positioning. It is designed for serious learners who want full-spectrum
+    mastery, and even if you start from zero, we guarantee structured beginner pathways
+    that will build you step by step into an advanced level."
   icon: {fileID: 0}
-  cost: 0
-  isSellable: 1
+  cost: 12500
+  isSellable: 0
   sellRatio: 0.6
-  minIncomePerTick: 0
-  maxIncomePerTick: 0
+  minIncomePerSecond: 100
+  maxIncomePerSecond: 120
