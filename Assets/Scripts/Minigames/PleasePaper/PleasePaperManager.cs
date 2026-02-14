@@ -78,6 +78,59 @@ public class PleasePaperManager : MonoBehaviour
     public static event Action<string> OnPleasePaperFailed; //minigame başlatılamadı (ileride kullanılacak)
 #pragma warning restore 0067
 
+    public void DebugShowSuccess()
+    {
+        // Fake pending result oluştur
+        pendingResult = new PleasePaperResult
+        {
+            success = true,
+            isFakeCrisis = false,
+            bargainingPower = 0.75f,
+            wealthChange = 5000,
+            suspicionChange = 10
+        };
+    
+        currentState = PleasePaperState.BargainingPhase;
+        OnBargainingStarted?.Invoke(0.75f);
+    }
+    public void DebugShowFailure()
+    {
+        OnGameOver?.Invoke("Debug: Control stat dropped to zero.");
+    }
+    
+    public void DebugForceOffer()
+    {
+        Debug.Log($"State: {currentState}");
+    
+        if (currentState != PleasePaperState.Idle)
+        {
+            Debug.LogWarning("Not in Idle state, cannot generate offer");
+            return;
+        }
+    
+        if (database == null)
+        {
+            Debug.LogError("Database is null!");
+            return;
+        }
+    
+        if (database.offerEvents == null || database.offerEvents.Count == 0)
+        {
+            Debug.LogError("No offer events in database!");
+            return;
+        }
+    
+        if (!EventCoordinator.CanShowEvent())
+        {
+            Debug.LogWarning("EventCoordinator cooldown active, forcing anyway...");
+            EventCoordinator.MarkEventShown(); // Reset cooldown
+        }
+    
+        Debug.Log($"Available offers: {database.offerEvents.Count}");
+    
+        GenerateOffer();
+    }
+    
     private void Awake()
     {
         if (Instance != null && Instance != this)
