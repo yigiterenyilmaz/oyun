@@ -88,7 +88,6 @@ public class UImanager : MonoBehaviour
     {
         if (enable)
         {
-            Debug.Log("AAAAAAAAAAAAAAAAAAAAAAAAAA");
             pauseButton.SetActive(false);
             skillTreeButton.SetActive(false);
             mainCamera.enable = false;

@@ -9,6 +9,9 @@ public class WarForOilManager : MonoBehaviour
     [Header("Referanslar")]
     public MiniGameData minigameData;
     public WarForOilDatabase database;
+    
+    [Header("Debug")]
+    public bool bypassUnlockCheck = true;
 
     //mevcut durum
     private WarForOilState currentState = WarForOilState.Idle;
@@ -58,6 +61,16 @@ public class WarForOilManager : MonoBehaviour
     public static event Action<WarForOilResult> OnWarFinished; //sonuç ekranı kapatıldı, her şey bitti
     public static event Action<List<WarForOilCountry>> OnActiveCountriesChanged; //UI'daki ülke listesi değişti
 
+    void Start()
+    {
+        // Force initialize countries for debugging
+        if (bypassUnlockCheck && database != null && database.countries.Count > 0)
+        {
+            InitializeCountryRotation();
+            Debug.Log($"[WarForOilManager] Force initialized {activeCountries.Count} countries");
+        }
+    }
+    
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -99,10 +112,18 @@ public class WarForOilManager : MonoBehaviour
         if (country == null) return;
 
         //minigame açık mı ve cooldown'da mı kontrol et
-        if (MinigameManager.Instance != null)
+        if (!bypassUnlockCheck && MinigameManager.Instance != null)
         {
-            if (!MinigameManager.Instance.IsMinigameUnlocked(minigameData)) return;
-            if (MinigameManager.Instance.IsOnCooldown(minigameData)) return;
+            if (!MinigameManager.Instance.IsMinigameUnlocked(minigameData))
+            {
+                Debug.Log("[WarForOilManager] BLOCKED: not unlocked");
+                return;
+            }
+            if (MinigameManager.Instance.IsOnCooldown(minigameData))
+            {
+                Debug.Log("[WarForOilManager] BLOCKED: on cooldown");
+                return;
+            }
         }
 
         //bu ülke zaten işgal edilmiş mi
