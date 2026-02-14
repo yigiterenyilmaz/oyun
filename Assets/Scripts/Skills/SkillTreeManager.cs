@@ -16,6 +16,12 @@ public class SkillTreeManager : MonoBehaviour
     private float passiveIncomeTimer = 0f;
     private const float PASSIVE_INCOME_INTERVAL = 5f; //kaç saniyede bir gelir eklenir
 
+    //passive income — direkt gelir (skill açılınca akan, zamanla azalan gelir)
+    [Header("Direkt Gelir Azalma Ayarları")]
+    public float directIncomeDecayDuration = 300f; //gelirin sıfıra inme süresi (saniye)
+    public float directIncomeDecayExponent = 4f;   //azalma eğrisi keskinliği (>1: başta yavaş, sonda hızlı)
+    private List<DirectIncomeSource> directIncomeSources = new List<DirectIncomeSource>();
+
     //training — bilim adamı eğitim sistemi
     private bool trainingUnlocked = false;
     private List<ScientistTraining> scientists = new List<ScientistTraining>();
@@ -47,8 +53,9 @@ public class SkillTreeManager : MonoBehaviour
 
     private void Update()
     {
-        //pasif geliri 5 saniyede bir uygula
-        if (ownedProducts.Count > 0 && GameStatManager.Instance != null)
+        //pasif geliri 5 saniyede bir uygula (ürün geliri + direkt gelir)
+        bool hasIncome = ownedProducts.Count > 0 || directIncomeSources.Count > 0;
+        if (hasIncome && GameStatManager.Instance != null)
         {
             passiveIncomeTimer += Time.deltaTime;
             if (passiveIncomeTimer >= PASSIVE_INCOME_INTERVAL)
@@ -56,20 +63,55 @@ public class SkillTreeManager : MonoBehaviour
                 passiveIncomeTimer = 0f;
 
                 float totalIncome = 0f;
+
+                //ürün tabanlı gelir
                 foreach (var kvp in ownedProducts)
                 {
                     PassiveIncomeProduct product = kvp.Key;
                     int count = kvp.Value;
-                    //ürün tipi başına tek random, adet ile çarpılır
                     float incomePerUnit = UnityEngine.Random.Range(product.minIncomePerTick, product.maxIncomePerTick);
                     totalIncome += incomePerUnit * count;
                 }
 
                 totalIncome *= PASSIVE_INCOME_INTERVAL;
+
+                //direkt gelir (her kaynak kendi decay eğrisiyle)
+                float directTotal = CalculateDirectIncome();
+                totalIncome += directTotal * PASSIVE_INCOME_INTERVAL;
+
                 GameStatManager.Instance.AddWealth(totalIncome);
                 OnPassiveIncomeTick?.Invoke(totalIncome);
             }
         }
+    }
+
+    /// <summary>
+    /// Tüm direkt gelir kaynaklarının decay uygulanmış anlık saniye başına toplamını hesaplar.
+    /// Süresi dolan kaynakları temizler.
+    /// </summary>
+    private float CalculateDirectIncome()
+    {
+        float total = 0f;
+
+        for (int i = directIncomeSources.Count - 1; i >= 0; i--)
+        {
+            DirectIncomeSource source = directIncomeSources[i];
+            float elapsed = Time.time - source.startTime;
+            float t = elapsed / directIncomeDecayDuration;
+
+            //süresi doldu — listeden çıkar
+            if (t >= 1f)
+            {
+                directIncomeSources.RemoveAt(i);
+                continue;
+            }
+
+            //azalma eğrisi: başta yavaş, sonda hızlı (exponent > 1)
+            float multiplier = 1f - Mathf.Pow(t, directIncomeDecayExponent);
+            total += source.incomePerSecond * multiplier;
+        }
+
+        return total;
     }
 
     // ==================== SKİLL SİSTEMİ ====================
@@ -234,6 +276,33 @@ public class SkillTreeManager : MonoBehaviour
         int remaining = ownedProducts.ContainsKey(product) ? ownedProducts[product] : 0;
         OnProductSold?.Invoke(product, remaining);
         return true;
+    }
+
+    // ==================== DİREKT GELİR SİSTEMİ ====================
+
+    /// <summary>
+    /// DirectPassiveIncomeEffect tarafından çağrılır. Yeni bir gelir kaynağı ekler.
+    /// Gelir zamanla azalır (decay eğrisi).
+    /// </summary>
+    public void AddDirectPassiveIncome(float incomePerSecond)
+    {
+        directIncomeSources.Add(new DirectIncomeSource(incomePerSecond, Time.time));
+    }
+
+    /// <summary>
+    /// Şu anki toplam direkt geliri döner (decay uygulanmış, saniye başına).
+    /// </summary>
+    public float GetDirectPassiveIncome()
+    {
+        float total = 0f;
+        for (int i = 0; i < directIncomeSources.Count; i++)
+        {
+            float elapsed = Time.time - directIncomeSources[i].startTime;
+            float t = elapsed / directIncomeDecayDuration;
+            if (t >= 1f) continue;
+            total += directIncomeSources[i].incomePerSecond * (1f - Mathf.Pow(t, directIncomeDecayExponent));
+        }
+        return total;
     }
 
     // ==================== ÜRÜN GETTER'LARI ====================
@@ -435,5 +504,20 @@ public class SkillTreeManager : MonoBehaviour
     private void HandleUnlockRequest(String skillId)
     {
         TryUnlock(skillId);
+    }
+}
+
+/// <summary>
+/// Skill'den gelen direkt gelir kaynağı. Zamanla decay uygulanır.
+/// </summary>
+public class DirectIncomeSource
+{
+    public float incomePerSecond;
+    public float startTime;
+
+    public DirectIncomeSource(float incomePerSecond, float startTime)
+    {
+        this.incomePerSecond = incomePerSecond;
+        this.startTime = startTime;
     }
 }
