@@ -104,7 +104,8 @@ public class SkillTreeManager : MonoBehaviour
                 continue;
             }
 
-            total += source.incomePerSecond * multiplier;
+            float randomized = source.incomePerSecond * UnityEngine.Random.Range(0.95f, 1.05f);
+            total += randomized * multiplier;
         }
 
         return total;

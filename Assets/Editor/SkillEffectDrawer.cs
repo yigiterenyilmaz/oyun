@@ -157,9 +157,51 @@ public static class SkillEffectDrawer
             }
             else if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
             {
-                //List alanları için SerializedProperty fallback kullan
                 EditorGUI.EndChangeCheck();
-                EditorGUILayout.LabelField(label, "(Liste — Inspector'dan ayarlayın)");
+                var elementType = fieldType.GetGenericArguments()[0];
+
+                //sadece UnityEngine.Object listelerini destekle (ScriptableObject vs.)
+                if (typeof(UnityEngine.Object).IsAssignableFrom(elementType))
+                {
+                    var list = (System.Collections.IList)value;
+                    if (list == null)
+                    {
+                        list = (System.Collections.IList)Activator.CreateInstance(fieldType);
+                        field.SetValue(obj, list);
+                        changed = true;
+                    }
+
+                    EditorGUILayout.LabelField(label);
+                    EditorGUI.indentLevel++;
+
+                    for (int li = 0; li < list.Count; li++)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        var oldItem = list[li] as UnityEngine.Object;
+                        var newItem = EditorGUILayout.ObjectField(oldItem, elementType, false);
+                        if (newItem != oldItem) { list[li] = newItem; changed = true; }
+                        if (GUILayout.Button("-", GUILayout.Width(20)))
+                        {
+                            list.RemoveAt(li);
+                            changed = true;
+                            EditorGUILayout.EndHorizontal();
+                            break;
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
+
+                    if (GUILayout.Button("+", GUILayout.Width(20)))
+                    {
+                        list.Add(null);
+                        changed = true;
+                    }
+
+                    EditorGUI.indentLevel--;
+                }
+                else
+                {
+                    EditorGUILayout.LabelField(label, "(Desteklenmeyen liste tipi)");
+                }
             }
             else
             {
