@@ -15,10 +15,11 @@ MonoBehaviour:
   id: 
   displayName: 
   description: 
-  eventType: 0
+  eventType: 2
   baseReward: 0
   riskLevel: 0
   processEvents: []
+  postProcessEffect: 0
   scientistKillCount: 0
   decisionTime: 10
   choices: []

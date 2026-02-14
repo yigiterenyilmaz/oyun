@@ -25,6 +25,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 86eef0c34e9163a49a710dbf760e0688, type: 2}
   effects:
   - rid: 2638472920323326024
+  otherPrerequisites: 0
   blocksSkills: []
   references:
     version: 2
