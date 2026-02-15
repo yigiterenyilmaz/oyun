@@ -29,6 +29,7 @@ public class SkillTreeManager : MonoBehaviour
     private bool marketOscillationPaused = false; //ekran açıkken salınım durur
     private Dictionary<InvestmentProduct, bool> investmentAvailable = new Dictionary<InvestmentProduct, bool>(); //piyasada şu an bulunuyor mu
     private Dictionary<InvestmentProduct, float> investmentPhaseEndTime = new Dictionary<InvestmentProduct, float>(); //mevcut fazın bitiş zamanı
+    private Dictionary<InvestmentProduct, float> effectiveProfitChance = new Dictionary<InvestmentProduct, float>(); //streak breaker ile değişen kâr olasılığı
 
     //training — bilim adamı eğitim sistemi
     private bool trainingUnlocked = false;
@@ -250,7 +251,7 @@ public class SkillTreeManager : MonoBehaviour
         {
             //potansiyele doğru zigzag hareket
             float distanceToTarget = inv.targetPercent - inv.currentPercent;
-            float trendStep = distanceToTarget * 0.05f; //kalan mesafenin %5'i kadar çek
+            float trendStep = distanceToTarget * inv.trendSpeed; //kalan mesafenin trendSpeed oranı kadar çek
             float noise = UnityEngine.Random.Range(-inv.product.volatility, inv.product.volatility);
             inv.currentPercent += trendStep + noise;
 
@@ -531,6 +532,7 @@ public class SkillTreeManager : MonoBehaviour
             {
                 newlyUnlocked.Add(product);
                 marketPricePercents[product] = 0f; //piyasa fiyatını başlat
+                effectiveProfitChance[product] = product.profitChance; //streak breaker için başlangıç değeri
 
                 //availability başlat (limited ise unavailable başla, hemen phase check tetiklensin)
                 if (product.hasLimitedAvailability)
@@ -571,8 +573,21 @@ public class SkillTreeManager : MonoBehaviour
 
         float quantity = investAmount / marketPrice;
 
-        OwnedInvestment inv = new OwnedInvestment(product, investAmount, quantity, Time.time);
+        //effectiveProfitChance ile oluştur
+        float chance = effectiveProfitChance.ContainsKey(product) ? effectiveProfitChance[product] : product.profitChance;
+        OwnedInvestment inv = new OwnedInvestment(product, investAmount, quantity, Time.time, chance);
         ownedInvestments.Add(inv);
+
+        //streak breaker: her alımda profitChance'i ayarla
+        if (product.isStreakBreakerActive)
+        {
+            float adjustment = UnityEngine.Random.Range(product.streakBreakerMin, product.streakBreakerMax) / 100f;
+            if (product.streakBreakerType == StreakBreakerType.Rising)
+                chance -= adjustment; //yükselen streak kırıcı — profitChance düşer
+            else
+                chance += adjustment; //düşen streak kırıcı — profitChance artar
+            effectiveProfitChance[product] = Mathf.Clamp01(chance);
+        }
 
         int index = ownedInvestments.Count - 1;
         OnInvestmentBought?.Invoke(index);
@@ -876,10 +891,11 @@ public class OwnedInvestment
     //simülasyon state
     public float targetPercent;        //hedef potansiyel (%, + kâr, - zarar)
     public float currentPercent;       //şu anki yüzde değişim
+    public float trendSpeed;           //hesaplanmış trend hızı (reachTime'dan türetilir)
     public bool reachedPotential;      //potansiyeline ulaştı mı
     public float reachedPotentialTime; //potansiyeline ulaşma zamanı
 
-    public OwnedInvestment(InvestmentProduct product, float investAmount, float quantity, float purchaseTime)
+    public OwnedInvestment(InvestmentProduct product, float investAmount, float quantity, float purchaseTime, float profitChance)
     {
         this.product = product;
         this.buyPrice = investAmount;
@@ -889,8 +905,12 @@ public class OwnedInvestment
         this.currentPercent = 0f;
         this.reachedPotential = false;
 
-        //kâr mı zarar mı? profitChance olasılığına göre belirle
-        bool isProfit = UnityEngine.Random.value <= product.profitChance;
+        //reachTime aralığından rastgele süre seç, trendSpeed hesapla
+        float reachTime = UnityEngine.Random.Range(product.minReachTime, product.maxReachTime);
+        this.trendSpeed = 1f - Mathf.Pow(0.05f, 2f / reachTime); //2f = tick interval
+
+        //kâr mı zarar mı? effectiveProfitChance olasılığına göre belirle
+        bool isProfit = UnityEngine.Random.value <= profitChance;
 
         if (isProfit)
             targetPercent = UnityEngine.Random.Range(0f, product.maxProfitPercent);

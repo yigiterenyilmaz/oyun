@@ -9,11 +9,24 @@ public class InvestmentProductEditor : Editor
 
         EditorGUILayout.PropertyField(serializedObject.FindProperty("id"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("displayName"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("productType"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("icon"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("cost"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("profitChance"));
+        var isStreakBreaker = serializedObject.FindProperty("isStreakBreakerActive");
+        EditorGUILayout.PropertyField(isStreakBreaker);
+        if (isStreakBreaker.boolValue)
+        {
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("streakBreakerType"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("streakBreakerMin"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("streakBreakerMax"));
+            EditorGUI.indentLevel--;
+        }
         EditorGUILayout.PropertyField(serializedObject.FindProperty("maxProfitPercent"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("maxLossPercent"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("minReachTime"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("maxReachTime"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("volatility"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("postPotentialDrift"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("postPotentialTimeout"));
